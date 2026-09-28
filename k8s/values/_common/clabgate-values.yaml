@@ -11,7 +11,7 @@ serviceAccount:
     clusterRole:
       name: clabgate
       rules:
-        - apiGroups: [ "clabernetes.containerlab.dev" ]
+        - apiGroups: [ "c9s.run" ]
           resources: [ "topologies" ]
           verbs: [ "get", "list", "create", "update", "patch", "delete" ]
         - apiGroups: [ "apps" ]

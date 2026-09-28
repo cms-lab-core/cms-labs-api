@@ -91,7 +91,7 @@ func (k *KubernetesAdminQuery) GetTopologyYAML(ctx context.Context, namespace st
 	}
 
 	gvr := schema.GroupVersionResource{
-		Group:    "clabernetes.containerlab.dev",
+		Group:    "c9s.run",
 		Version:  "v1alpha1",
 		Resource: "topologies",
 	}

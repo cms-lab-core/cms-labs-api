@@ -52,7 +52,7 @@ exact files and records the resolved commit SHA in the namespace.
 For the first release the allow-list is deliberately small:
 
 - `v1/ConfigMap` (zero or more);
-- `clabernetes.containerlab.dev/v1alpha1/Topology` (exactly one when any task
+- `c9s.run/v1alpha1/Topology` (exactly one when any task
   manifest exists).
 
 Cluster-scoped objects, RBAC, Secrets, workloads and arbitrary metadata are

@@ -118,7 +118,7 @@ func handleGitLab(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, []map[string]string{{"path": "labs/smoke/topology.yaml", "type": "blob"}})
 	case strings.Contains(requestPath, "/repository/files/") && strings.HasSuffix(requestPath, "/raw"):
 		w.Header().Set("Content-Type", "application/yaml")
-		_, _ = w.Write([]byte(`apiVersion: clabernetes.containerlab.dev/v1alpha1
+		_, _ = w.Write([]byte(`apiVersion: c9s.run/v1alpha1
 kind: Topology
 metadata:
   name: smoke
@@ -130,7 +130,7 @@ spec:
         nodes:
           client:
             kind: linux
-            image: ghcr.io/srl-labs/alpine
+            image: docker.io/library/alpine:3.24
             ttyd-shell: /bin/sh
 `))
 	default:

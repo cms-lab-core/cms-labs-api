@@ -148,7 +148,7 @@ ServiceAccount/RBAC в `k8s/values/_common/clabgate-values.yaml` расшире�
 - Загрузка notebook пока использует `nbgitpuller`, но и Kubernetes-манифесты, и notebook checkout закреплены по разрешённому commit SHA.
 - `topology.get` выдаёт ttyd только как короткоживущий grant: frontend обменивает его на scoped HttpOnly cookie и проксирует HTTP/WebSocket в namespace сессии.
 - Ещё нет ResourceQuota, LimitRange, NetworkPolicy, TTL/idle policy и informer cache. Две replicas reconciler координируются Kubernetes Lease.
-- `Topology` GVR соответствует используемому локальному fork `clabernetes.containerlab.dev/v1alpha1`; перед обновлением upstream нужна миграция API group/version.
+- `Topology` GVR соответствует актуальному API персонального Clabernetes: `c9s.run/v1alpha1`.
 
 Локальная проверка без кластера:
 
@@ -422,7 +422,7 @@ spec:
   policy:
     allowedManifestKinds:
       - v1/ConfigMap
-      - clabernetes.containerlab.dev/v1alpha1/Topology
+      - c9s.run/v1alpha1/Topology
 ```
 
 Отдельный runtime позволяет `SDN_Lab_3_1` работать без topology, а topology-only заданиям — не поднимать notebook.

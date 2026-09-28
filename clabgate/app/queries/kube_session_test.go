@@ -51,7 +51,7 @@ metadata:
 data:
   config: test
 ---
-apiVersion: clabernetes.containerlab.dev/v1alpha1
+apiVersion: c9s.run/v1alpha1
 kind: Topology
 metadata:
   name: $NAME

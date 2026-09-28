@@ -59,7 +59,7 @@ const (
 )
 
 var topologyGVR = schema.GroupVersionResource{
-	Group: "clabernetes.containerlab.dev", Version: "v1alpha1", Resource: "topologies",
+	Group: "c9s.run", Version: "v1alpha1", Resource: "topologies",
 }
 
 type SessionPhase string
@@ -288,7 +288,7 @@ func (k *KubernetesAdminQuery) ensureTopology(
 		obj := &unstructured.Unstructured{Object: raw}
 		switch {
 		case obj.GetAPIVersion() == "v1" && obj.GetKind() == "ConfigMap":
-		case obj.GetAPIVersion() == "clabernetes.containerlab.dev/v1alpha1" && obj.GetKind() == "Topology":
+		case obj.GetAPIVersion() == "c9s.run/v1alpha1" && obj.GetKind() == "Topology":
 			topologyCount++
 		default:
 			return fmt.Errorf("unsupported object %s %s in topology manifest; only v1 ConfigMap and clabernetes Topology are allowed", obj.GetAPIVersion(), obj.GetKind())

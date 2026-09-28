@@ -8,7 +8,8 @@ base_url=http://127.0.0.1:18080
 repo_root=$(CDPATH='' cd -- "$(dirname "$0")/../.." && pwd)
 cookie_jar=$(mktemp "${TMPDIR:-/tmp}/cms-labs-cookie.XXXXXX")
 terminal_headers=$(mktemp "${TMPDIR:-/tmp}/cms-labs-terminal-headers.XXXXXX")
-trap 'rm -f "$cookie_jar" "$terminal_headers"' EXIT HUP INT TERM
+terminal_body=$(mktemp "${TMPDIR:-/tmp}/cms-labs-terminal-body.XXXXXX")
+trap 'rm -f "$cookie_jar" "$terminal_headers" "$terminal_body"' EXIT HUP INT TERM
 
 fail() {
   title=$1
@@ -142,14 +143,14 @@ terminal_exchange_status=$(curl --noproxy '*' --silent --show-error \
   --dump-header "$terminal_headers" --output /dev/null --write-out '%{http_code}' \
   "$base_url$terminal_grant")
 assert_equal "$terminal_exchange_status" 303 "Terminal grant exchange did not redirect"
-terminal_location=$(awk 'BEGIN {IGNORECASE=1} /^location:/ {sub(/\r$/, "", $2); print $2}' "$terminal_headers")
+terminal_location=$(awk 'tolower($1) == "location:" {sub(/\r$/, "", $2); print $2}' "$terminal_headers")
 if test -z "$terminal_location"; then
   fail "Terminal redirect is missing" "grant exchange returned no Location header"
 fi
-terminal_page=$(curl --noproxy '*' --fail-with-body --silent --show-error \
+curl --noproxy '*' --fail-with-body --silent --show-error \
   -H "Cookie: clabgate_workspace=$workspace_cookie" \
-  "$base_url$terminal_location")
-if ! printf '%s' "$terminal_page" | grep -qi 'ttyd'; then
+  --output "$terminal_body" "$base_url$terminal_location"
+if ! grep -qi 'ttyd' "$terminal_body"; then
   fail "Terminal proxy response is invalid" "expected ttyd browser client"
 fi
 
