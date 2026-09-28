@@ -32,7 +32,7 @@ func workspaceExchange(c *fiber.Ctx) error {
 	c.Cookie(&fiber.Cookie{
 		Name: usecases.WorkspaceCookieName, Value: cookie,
 		Path:   strings.TrimRight(config.WorkspacePrefix, "/") + "/" + sessionID + "/",
-		MaxAge: int(maxAge), HTTPOnly: true, Secure: true, SameSite: "Lax",
+		MaxAge: int(maxAge), HTTPOnly: true, Secure: config.WorkspaceCookieSecure, SameSite: "Lax",
 	})
 	return c.Redirect(destination, http.StatusSeeOther)
 }

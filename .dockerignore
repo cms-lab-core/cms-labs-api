@@ -12,3 +12,5 @@ local_db/
 .git/
 .github/
 build/
+**/build/
+**/node_modules/

@@ -52,8 +52,8 @@ jobs:
       - name: Install Clabernetes
         run: |
           helm upgrade --install clabernetes \
-            oci://ghcr.io/srl-labs/clabernetes/clabernetes \
-            --version 0.6.0 \
+            oci://ghcr.io/maintainer64/cms-labs-clabernetes/clabernetes \
+            --version 0.0.0 \
             --namespace c9s \
             --create-namespace \
             --kube-context kind-cms-labs-local
@@ -68,7 +68,7 @@ jobs:
           yarn --cwd nextui-dashboard build
       - name: Build and load smoke images
         run: |
-          docker build --platform linux/amd64 -t cms-labs/clabgate:local clabgate
+          docker build --platform linux/amd64 -f clabgate/Dockerfile -t cms-labs/clabgate:local .
           docker build --platform linux/amd64 -t cms-labs/smoke-mock:local clabgate/e2e/mock
           docker build --platform linux/amd64 -t cms-labs/jupyter-smoke:local clabgate/e2e/jupyter
           docker build --platform linux/amd64 -t cms-labs/checker-smoke:local clabgate/e2e/checker

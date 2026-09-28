@@ -30,18 +30,19 @@ type CMSConfig struct {
 }
 
 type SessionConfig struct {
-	TaskRepositoryURL   string
-	TaskBranch          string
-	TaskRepositoryToken string
-	JupyterImage        string
-	JupyterStorage      string
-	WorkspacePrefix     string
-	WorkspaceSecret     string
-	WorkspaceGrantTTL   int64
-	WorkspaceCookieTTL  int64
-	ReconcileSeconds    int64
-	CheckerImage        string
-	CheckerTimeout      int64
+	TaskRepositoryURL     string
+	TaskBranch            string
+	TaskRepositoryToken   string
+	JupyterImage          string
+	JupyterStorage        string
+	WorkspacePrefix       string
+	WorkspaceSecret       string
+	WorkspaceGrantTTL     int64
+	WorkspaceCookieTTL    int64
+	WorkspaceCookieSecure bool
+	ReconcileSeconds      int64
+	CheckerImage          string
+	CheckerTimeout        int64
 }
 
 func (c *AppConfigModel) Reload() {
@@ -65,18 +66,19 @@ func (c *AppConfigModel) Reload() {
 		MaxTimeoutSeconds: getEnvInt64Default("CMS_TIMEOUT_SECONDS", 30),
 	}
 	c.Session = &SessionConfig{
-		TaskRepositoryURL:   os.Getenv("CMS_TASK_URL"),
-		TaskBranch:          getEnvDefault("CMS_TASK_BRANCH", "master"),
-		TaskRepositoryToken: getEnvDefault("TASK_REPOSITORY_TOKEN", os.Getenv("GITLAB_TOKEN")),
-		JupyterImage:        os.Getenv("JUPYTER_IMAGE"),
-		JupyterStorage:      getEnvDefault("JUPYTER_STORAGE_SIZE", "1Gi"),
-		WorkspacePrefix:     getEnvDefault("WORKSPACE_PROXY_PREFIX", "/clabgate/workspace"),
-		WorkspaceSecret:     os.Getenv("WORKSPACE_AUTH_SECRET"),
-		WorkspaceGrantTTL:   getEnvInt64Default("WORKSPACE_GRANT_TTL_SECONDS", 60),
-		WorkspaceCookieTTL:  getEnvInt64Default("WORKSPACE_COOKIE_TTL_SECONDS", 3600),
-		ReconcileSeconds:    getEnvInt64Default("SESSION_RECONCILE_INTERVAL_SECONDS", 30),
-		CheckerImage:        os.Getenv("CHECKER_IMAGE"),
-		CheckerTimeout:      getEnvInt64Default("CHECKER_TIMEOUT_SECONDS", 600),
+		TaskRepositoryURL:     os.Getenv("CMS_TASK_URL"),
+		TaskBranch:            getEnvDefault("CMS_TASK_BRANCH", "master"),
+		TaskRepositoryToken:   getEnvDefault("TASK_REPOSITORY_TOKEN", os.Getenv("GITLAB_TOKEN")),
+		JupyterImage:          os.Getenv("JUPYTER_IMAGE"),
+		JupyterStorage:        getEnvDefault("JUPYTER_STORAGE_SIZE", "1Gi"),
+		WorkspacePrefix:       getEnvDefault("WORKSPACE_PROXY_PREFIX", "/clabgate/workspace"),
+		WorkspaceSecret:       os.Getenv("WORKSPACE_AUTH_SECRET"),
+		WorkspaceGrantTTL:     getEnvInt64Default("WORKSPACE_GRANT_TTL_SECONDS", 60),
+		WorkspaceCookieTTL:    getEnvInt64Default("WORKSPACE_COOKIE_TTL_SECONDS", 3600),
+		WorkspaceCookieSecure: getEnvBoolDefault("WORKSPACE_COOKIE_SECURE", true),
+		ReconcileSeconds:      getEnvInt64Default("SESSION_RECONCILE_INTERVAL_SECONDS", 30),
+		CheckerImage:          os.Getenv("CHECKER_IMAGE"),
+		CheckerTimeout:        getEnvInt64Default("CHECKER_TIMEOUT_SECONDS", 600),
 	}
 }
 
@@ -98,6 +100,18 @@ func getEnvDefault(name, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func getEnvBoolDefault(name string, fallback bool) bool {
+	value := os.Getenv(name)
+	if value == "" {
+		return fallback
+	}
+	parsed, err := strconv.ParseBool(value)
+	if err != nil {
+		return fallback
+	}
+	return parsed
 }
 
 func NewAppConfigModel() *AppConfigModel {

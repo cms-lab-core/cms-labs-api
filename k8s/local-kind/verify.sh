@@ -7,7 +7,8 @@ session_id=550e8400-e29b-41d4-a716-446655440000
 base_url=http://127.0.0.1:18080
 repo_root=$(CDPATH='' cd -- "$(dirname "$0")/../.." && pwd)
 cookie_jar=$(mktemp "${TMPDIR:-/tmp}/cms-labs-cookie.XXXXXX")
-trap 'rm -f "$cookie_jar"' EXIT HUP INT TERM
+terminal_headers=$(mktemp "${TMPDIR:-/tmp}/cms-labs-terminal-headers.XXXXXX")
+trap 'rm -f "$cookie_jar" "$terminal_headers"' EXIT HUP INT TERM
 
 fail() {
   title=$1
@@ -126,6 +127,26 @@ workspace=$(curl --noproxy '*' --fail-with-body --silent --show-error \
   "$base_url/clabgate/workspace/$session_id/")
 if ! printf '%s' "$workspace" | grep -q 'workspace ready'; then
   fail "Workspace response is invalid" "expected workspace ready marker"
+fi
+
+topology_response=$(curl --noproxy '*' --fail-with-body --silent --show-error \
+  -H "$authorization" -H 'Content-Type: application/json' \
+  --data "{\"jsonrpc\":\"2.0\",\"id\":\"smoke-topology\",\"method\":\"topology.get\",\"params\":{\"session_id\":\"$session_id\"}}" \
+  "$rpc_url")
+terminal_grant=$(printf '%s' "$topology_response" | jq -er '.result.ttyd[0].url')
+terminal_exchange_status=$(curl --noproxy '*' --silent --show-error \
+  --dump-header "$terminal_headers" --output /dev/null --write-out '%{http_code}' \
+  "$base_url$terminal_grant")
+assert_equal "$terminal_exchange_status" 303 "Terminal grant exchange did not redirect"
+terminal_location=$(awk 'BEGIN {IGNORECASE=1} /^location:/ {sub(/\r$/, "", $2); print $2}' "$terminal_headers")
+if test -z "$terminal_location"; then
+  fail "Terminal redirect is missing" "grant exchange returned no Location header"
+fi
+terminal_page=$(curl --noproxy '*' --fail-with-body --silent --show-error \
+  -H "Cookie: clabgate_workspace=$workspace_cookie" \
+  "$base_url$terminal_location")
+if ! printf '%s' "$terminal_page" | grep -qi 'ttyd'; then
+  fail "Terminal proxy response is invalid" "expected ttyd browser client"
 fi
 
 printf 'smoke passed: leader=%s job=%s check_id=%s score=%s\n' \

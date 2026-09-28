@@ -131,8 +131,7 @@ spec:
           client:
             kind: linux
             image: ghcr.io/srl-labs/alpine
-            clabernetes:
-              mountDockerSock: true
+            ttyd-shell: /bin/sh
 `))
 	default:
 		http.NotFound(w, r)
