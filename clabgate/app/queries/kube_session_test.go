@@ -99,6 +99,9 @@ spec:
 	if deployment.Spec.Template.Spec.AutomountServiceAccountToken == nil || *deployment.Spec.Template.Spec.AutomountServiceAccountToken {
 		t.Fatal("Jupyter must not receive a Kubernetes service account token")
 	}
+	if deployment.Spec.Template.Spec.EnableServiceLinks == nil || *deployment.Spec.Template.Spec.EnableServiceLinks {
+		t.Fatal("Jupyter service links must be disabled to avoid the JUPYTER_PORT environment collision")
+	}
 	container := deployment.Spec.Template.Spec.Containers[0]
 	if container.Image != params.JupyterImage {
 		t.Fatalf("Jupyter image = %q, want %q", container.Image, params.JupyterImage)

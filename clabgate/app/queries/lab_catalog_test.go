@@ -6,6 +6,9 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 	"testing"
 
@@ -111,6 +114,70 @@ func TestLabCatalogBundleUsesGitHubAPIAndStableOrder(t *testing.T) {
 	if strings.Index(bundle.Manifest, "name: a") > strings.Index(bundle.Manifest, "name: z") {
 		t.Fatalf("manifests are not stable-sorted: %s", bundle.Manifest)
 	}
+}
+
+func TestLabCatalogBundleUsesGitForPublicGitHubAndPinsRevision(t *testing.T) {
+	repositoryDir := t.TempDir()
+	runTestGit(t, repositoryDir, "init", "--initial-branch=main")
+	runTestGit(t, repositoryDir, "config", "user.name", "CMS Labs test")
+	runTestGit(t, repositoryDir, "config", "user.email", "cms-labs@example.com")
+
+	labDirectory := filepath.Join(repositoryDir, "task", "nested")
+	if err := os.MkdirAll(labDirectory, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repositoryDir, "task", "z.yml"), []byte("kind: ConfigMap\nmetadata:\n  name: z\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(labDirectory, "a.yaml"), []byte("kind: ConfigMap\nmetadata:\n  name: a\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repositoryDir, "task", "README.md"), []byte("ignored"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runTestGit(t, repositoryDir, "add", ".")
+	runTestGit(t, repositoryDir, "commit", "-m", "initial task")
+	firstRevision := strings.TrimSpace(runTestGit(t, repositoryDir, "rev-parse", "HEAD"))
+
+	catalog := NewLabCatalog("https://github.com/maintainer64/cms-labs-simple-task.git", "main", "", resty.New())
+	repository := repositoryLocation{provider: providerGitHub, cloneURL: repositoryDir}
+	bundle, err := catalog.bundleFromGit(context.Background(), repository, "task", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if bundle.Revision != firstRevision {
+		t.Fatalf("revision = %q, want %q", bundle.Revision, firstRevision)
+	}
+	if len(bundle.Files) != 2 || bundle.Files[0] != "task/nested/a.yaml" || bundle.Files[1] != "task/z.yml" {
+		t.Fatalf("unexpected files: %#v", bundle.Files)
+	}
+	if strings.Index(bundle.Manifest, "name: a") > strings.Index(bundle.Manifest, "name: z") {
+		t.Fatalf("manifests are not stable-sorted: %s", bundle.Manifest)
+	}
+
+	if err := os.WriteFile(filepath.Join(repositoryDir, "task", "z.yml"), []byte("kind: ConfigMap\nmetadata:\n  name: changed\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	runTestGit(t, repositoryDir, "add", ".")
+	runTestGit(t, repositoryDir, "commit", "-m", "change task")
+	pinned, err := catalog.bundleFromGit(context.Background(), repository, "task", firstRevision)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if pinned.Revision != firstRevision || strings.Contains(pinned.Manifest, "name: changed") {
+		t.Fatalf("pinned bundle moved from %s: %#v", firstRevision, pinned)
+	}
+}
+
+func runTestGit(t *testing.T, directory string, args ...string) string {
+	t.Helper()
+	command := exec.Command("git", args...)
+	command.Dir = directory
+	output, err := command.CombinedOutput()
+	if err != nil {
+		t.Fatalf("git %s: %v: %s", strings.Join(args, " "), err, output)
+	}
+	return string(output)
 }
 
 func pathBaseWithoutYAML(value string) string {

@@ -20,7 +20,7 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH="${TARGETARCH}" go build -ldflags="-w -s" -o
 FROM docker.io/library/alpine:3.24.2
 
 WORKDIR /app
-RUN apk add --no-cache ca-certificates
+RUN apk add --no-cache ca-certificates git
 COPY --from=builder /out /app/
 
 RUN chmod +x /app/start.sh /app/clabgate

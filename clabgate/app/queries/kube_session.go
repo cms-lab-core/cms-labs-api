@@ -428,6 +428,7 @@ func (k *KubernetesAdminQuery) ensureWorkspace(
 				ObjectMeta: metav1.ObjectMeta{Labels: labelsMap},
 				Spec: corev1.PodSpec{
 					AutomountServiceAccountToken: boolPtr(false),
+					EnableServiceLinks:           boolPtr(false),
 					SecurityContext:              &corev1.PodSecurityContext{RunAsUser: int64Ptr(1000), RunAsGroup: int64Ptr(100), FSGroup: int64Ptr(100)},
 					Containers: []corev1.Container{{
 						Name:  workspaceName,

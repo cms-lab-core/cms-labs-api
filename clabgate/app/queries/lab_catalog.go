@@ -5,7 +5,10 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"os"
+	"os/exec"
 	"path"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -26,6 +29,7 @@ type repositoryLocation struct {
 	provider repositoryProvider
 	project  string
 	apiBase  string
+	cloneURL string
 }
 
 type LabCatalog struct {
@@ -90,6 +94,13 @@ func (c *LabCatalog) BundleAt(ctx context.Context, labsPath, pinnedRevision stri
 	if err != nil {
 		return LabBundle{}, err
 	}
+	// The unauthenticated GitHub REST API is limited per runner IP. Codespaces
+	// and hosted CI can therefore receive a 403 even for a public repository.
+	// Git's smart HTTP protocol has no such API quota and still gives us an
+	// immutable commit to pin retries to.
+	if repository.provider == providerGitHub && c.token == "" {
+		return c.bundleFromGit(ctx, repository, cleaned, pinnedRevision)
+	}
 
 	revision := strings.TrimSpace(pinnedRevision)
 	if revision == "" {
@@ -123,6 +134,149 @@ func (c *LabCatalog) BundleAt(ctx context.Context, labsPath, pinnedRevision stri
 		Files:      files,
 		ProjectURL: c.projectURL,
 	}, nil
+}
+
+func (c *LabCatalog) bundleFromGit(
+	ctx context.Context,
+	repository repositoryLocation,
+	labsPath string,
+	pinnedRevision string,
+) (LabBundle, error) {
+	checkoutRoot, err := os.MkdirTemp("", "cms-labs-task-*")
+	if err != nil {
+		return LabBundle{}, fmt.Errorf("create task checkout: %w", err)
+	}
+	defer os.RemoveAll(checkoutRoot)
+
+	repositoryDir := filepath.Join(checkoutRoot, "repository")
+	revision := strings.TrimSpace(pinnedRevision)
+	if revision == "" {
+		branch := strings.TrimSpace(c.branch)
+		if branch == "" {
+			branch = "master"
+		}
+		if err = runGit(ctx, "", "clone", "--quiet", "--depth=1", "--single-branch", "--branch", branch,
+			"--", repository.cloneURL, repositoryDir); err != nil {
+			return LabBundle{}, fmt.Errorf("clone GitHub ref %q: %w", branch, err)
+		}
+	} else {
+		if !isGitCommit(revision) {
+			return LabBundle{}, fmt.Errorf("invalid pinned GitHub revision %q", revision)
+		}
+		if err = os.Mkdir(repositoryDir, 0o700); err != nil {
+			return LabBundle{}, fmt.Errorf("create task repository directory: %w", err)
+		}
+		if err = runGit(ctx, repositoryDir, "init", "--quiet"); err != nil {
+			return LabBundle{}, fmt.Errorf("initialize task repository: %w", err)
+		}
+		if err = runGit(ctx, repositoryDir, "remote", "add", "origin", repository.cloneURL); err != nil {
+			return LabBundle{}, fmt.Errorf("configure task repository: %w", err)
+		}
+		if err = runGit(ctx, repositoryDir, "fetch", "--quiet", "--depth=1", "origin", revision); err != nil {
+			return LabBundle{}, fmt.Errorf("fetch pinned GitHub revision %q: %w", revision, err)
+		}
+		if err = runGit(ctx, repositoryDir, "checkout", "--quiet", "--detach", "FETCH_HEAD"); err != nil {
+			return LabBundle{}, fmt.Errorf("checkout pinned GitHub revision %q: %w", revision, err)
+		}
+	}
+
+	resolvedRevision, err := gitOutput(ctx, repositoryDir, "rev-parse", "HEAD")
+	if err != nil {
+		return LabBundle{}, fmt.Errorf("resolve checked out GitHub revision: %w", err)
+	}
+	resolvedRevision = strings.TrimSpace(resolvedRevision)
+	if revision != "" && !strings.EqualFold(revision, resolvedRevision) {
+		return LabBundle{}, fmt.Errorf("pinned GitHub revision mismatch: expected %s, got %s", revision, resolvedRevision)
+	}
+
+	labDirectory := filepath.Join(repositoryDir, filepath.FromSlash(labsPath))
+	info, err := os.Stat(labDirectory)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return LabBundle{}, fmt.Errorf("lab directory %q was not found in GitHub", labsPath)
+		}
+		return LabBundle{}, fmt.Errorf("inspect lab directory %q: %w", labsPath, err)
+	}
+	if !info.IsDir() {
+		return LabBundle{}, fmt.Errorf("lab path %q is not a directory", labsPath)
+	}
+
+	files := make([]string, 0)
+	err = filepath.WalkDir(labDirectory, func(filePath string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if !entry.Type().IsRegular() {
+			return nil
+		}
+		extension := strings.ToLower(filepath.Ext(entry.Name()))
+		if extension != ".yaml" && extension != ".yml" {
+			return nil
+		}
+		relative, relativeErr := filepath.Rel(repositoryDir, filePath)
+		if relativeErr != nil {
+			return relativeErr
+		}
+		files = append(files, filepath.ToSlash(relative))
+		return nil
+	})
+	if err != nil {
+		return LabBundle{}, fmt.Errorf("list task manifests in %q: %w", labsPath, err)
+	}
+	if len(files) == 0 {
+		return LabBundle{}, fmt.Errorf("lab directory %q contains no YAML manifests", labsPath)
+	}
+	sort.Strings(files)
+
+	documents := make([]string, 0, len(files))
+	for _, file := range files {
+		content, readErr := os.ReadFile(filepath.Join(repositoryDir, filepath.FromSlash(file)))
+		if readErr != nil {
+			return LabBundle{}, fmt.Errorf("read task manifest %q: %w", file, readErr)
+		}
+		if value := strings.TrimSpace(string(content)); value != "" {
+			documents = append(documents, value)
+		}
+	}
+
+	return LabBundle{
+		Manifest:   strings.Join(documents, "\n---\n"),
+		Revision:   resolvedRevision,
+		Files:      files,
+		ProjectURL: c.projectURL,
+	}, nil
+}
+
+func runGit(ctx context.Context, directory string, args ...string) error {
+	_, err := gitOutput(ctx, directory, args...)
+	return err
+}
+
+func gitOutput(ctx context.Context, directory string, args ...string) (string, error) {
+	command := exec.CommandContext(ctx, "git", args...)
+	command.Dir = directory
+	output, err := command.CombinedOutput()
+	if err != nil {
+		message := strings.TrimSpace(string(output))
+		if message == "" {
+			return "", err
+		}
+		return "", fmt.Errorf("%w: %s", err, message)
+	}
+	return string(output), nil
+}
+
+func isGitCommit(value string) bool {
+	if len(value) != 40 && len(value) != 64 {
+		return false
+	}
+	for _, character := range value {
+		if (character < '0' || character > '9') && (character < 'a' || character > 'f') &&
+			(character < 'A' || character > 'F') {
+			return false
+		}
+	}
+	return true
 }
 
 func (c *LabCatalog) resolveRevision(ctx context.Context, repository repositoryLocation) (string, error) {
@@ -283,9 +437,19 @@ func parseRepositoryURL(raw string) (repositoryLocation, error) {
 		if len(strings.Split(decoded, "/")) != 2 {
 			return repositoryLocation{}, fmt.Errorf("GitHub CMS_TASK_URL must include owner and repository")
 		}
-		return repositoryLocation{provider: providerGitHub, project: escapeRepositoryPath(decoded), apiBase: "https://api.github.com"}, nil
+		return repositoryLocation{
+			provider: providerGitHub,
+			project:  escapeRepositoryPath(decoded),
+			apiBase:  "https://api.github.com",
+			cloneURL: parsed.Scheme + "://" + parsed.Host + "/" + decoded + ".git",
+		}, nil
 	}
-	return repositoryLocation{provider: providerGitLab, project: decoded, apiBase: parsed.Scheme + "://" + parsed.Host + "/api/v4"}, nil
+	return repositoryLocation{
+		provider: providerGitLab,
+		project:  decoded,
+		apiBase:  parsed.Scheme + "://" + parsed.Host + "/api/v4",
+		cloneURL: parsed.Scheme + "://" + parsed.Host + "/" + decoded + ".git",
+	}, nil
 }
 
 func parseGitLabProjectURL(raw string) (project, apiBase string, err error) {
