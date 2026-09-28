@@ -28,7 +28,11 @@ assert_equal() {
 
 kubectl wait --for=condition=Available deployment/clabgate deployment/front deployment/smoke-mock \
   -n cms-labs-system --context "$context" --timeout=90s >/dev/null
+kubectl wait --for=create deployment/jupyter \
+  -n "$namespace" --context "$context" --timeout=90s >/dev/null
 kubectl wait --for=condition=Available deployment/jupyter \
+  -n "$namespace" --context "$context" --timeout=90s >/dev/null
+kubectl wait --for=create topology/smoke \
   -n "$namespace" --context "$context" --timeout=90s >/dev/null
 kubectl wait --for=jsonpath='{.status.topologyReady}'=true topology/smoke \
   -n "$namespace" --context "$context" --timeout=90s >/dev/null
