@@ -127,7 +127,9 @@ func (q *UserQueries) List(
 
 func (q *UserQueries) listFilter(search string, ids []uint, tx *gorm.DB) *gorm.DB {
 	tx = tx.Model(&models.User{})
-	tx = tx.Order(`created_at desc`)
+	// Keep pagination deterministic when multiple users are created within the
+	// same database timestamp precision window.
+	tx = tx.Order(`created_at desc`).Order(`id desc`)
 	if search != "" {
 		tx = tx.Or("email LIKE ?", fmt.Sprintf("%%%s%%", search))
 		tx = tx.Or("name LIKE ?", fmt.Sprintf("%%%s%%", search))
