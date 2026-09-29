@@ -128,7 +128,7 @@ Reconciler валидирует диапазон оценки, добавляе�
 | `CMS_TASK_BRANCH` | Git ref каталога, `master`; при запуске разрешается в commit SHA |
 | `TASK_REPOSITORY_TOKEN` | optional token для private GitLab/GitHub repository |
 | `GITLAB_TOKEN` | legacy fallback для `TASK_REPOSITORY_TOKEN` на время миграции |
-| `JUPYTER_IMAGE` | standalone notebook image со `start-notebook.py`; production default — `ghcr.io/maintainer64/cms-labs-jupyter:latest` |
+| `JUPYTER_IMAGE` | standalone notebook image со `start-notebook.py`; production default — `ghcr.io/maintainer64/cms-labs-jupyter:1.0.0` |
 | `JUPYTER_STORAGE_SIZE` | размер PVC, `1Gi` |
 | `WORKSPACE_PROXY_PREFIX` | URL prefix Jupyter, `/clabgate/workspace` |
 | `WORKSPACE_AUTH_SECRET` | общий для replicas HMAC secret, минимум 32 байта; обязателен для `session.open` |
