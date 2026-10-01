@@ -95,7 +95,7 @@ published at `http://127.0.0.1:18080`.
 
 - kind `0.33.0`;
 - Kubernetes `1.33.12`;
-- CMS Labs Clabernetes chart `0.8.0-4`;
+- CMS Labs Clabernetes chart `0.8.0-5`;
 - Docker Desktop on `linux/arm64`.
 
 The same commands work on `amd64` when `GOARCH` and Docker `--platform` are
@@ -112,7 +112,7 @@ kind create cluster \
 
 helm upgrade --install clabernetes \
   oci://ghcr.io/cms-lab-core/cms-labs-clabernetes/clabernetes \
-  --version 0.8.0-4 \
+  --version 0.8.0-5 \
   --namespace c9s \
   --create-namespace \
   --kube-context kind-cms-labs-local

@@ -53,7 +53,7 @@ jobs:
         run: |
           helm upgrade --install clabernetes \
             oci://ghcr.io/cms-lab-core/cms-labs-clabernetes/clabernetes \
-            --version 0.8.0-4 \
+            --version 0.8.0-5 \
             --namespace c9s \
             --create-namespace \
             --kube-context kind-cms-labs-local
