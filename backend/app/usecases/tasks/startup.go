@@ -9,7 +9,7 @@ type StartupFiberUC struct {
 	DemoSeedUC          *DemoSeedUC
 }
 
-func (u *StartupFiberUC) Startup(taskName *string) (bool, error) {
+func (u *StartupFiberUC) Startup(taskName *string, taskArgs ...string) (bool, error) {
 	// Запускаем всегда UserDefaultCreateUC
 	_ = u.UserDefaultCreateUC.Execute()
 	if taskName == nil || *taskName == "" {
@@ -22,7 +22,11 @@ func (u *StartupFiberUC) Startup(taskName *string) (bool, error) {
 		return true, u.LTISyncResultUC.Execute()
 	}
 	if *taskName == "demo_seed" {
-		return true, u.DemoSeedUC.Execute()
+		catalogPath := ""
+		if len(taskArgs) > 0 {
+			catalogPath = taskArgs[0]
+		}
+		return true, u.DemoSeedUC.Execute(catalogPath)
 	}
 	return false, errors.New("task is undefined")
 }

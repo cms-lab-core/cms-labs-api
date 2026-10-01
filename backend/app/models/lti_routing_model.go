@@ -14,7 +14,10 @@ type LTIRoutingSecret struct {
 	Collaboration int `gorm:"type:int;column:collaboration" json:"collaboration"`
 	// The type of PNETLabsType, cms_client.PNETLabsTypeDefault
 	// enum: default,curl,sso
-	LabsType  string `gorm:"type:varchar(255);column:labs_type" json:"labs_type"`
+	LabsType string `gorm:"type:varchar(255);column:labs_type" json:"labs_type"`
+	// LabsPath holds the Git link of the laboratory with an optional `#ref`
+	// fragment, for example https://git.example.org/course/lab.git#main.
+	// The manifests are read from the repository root.
 	LabsPath  string `gorm:"type:varchar(255);column:labs_path" json:"labs_path"`
 	TestPath  string `gorm:"type:varchar(255);column:test_path" json:"test_path"`
 	ServerID  uint   `gorm:"type:int;column:server_id" json:"server_id"`

@@ -10,7 +10,11 @@ import (
 )
 
 type AppConfigModel struct {
-	Debug             bool
+	Debug bool
+	// LabCatalog gates the laboratory catalog API. It is off unless
+	// LAB_CATALOG_ENABLED=true, so a deployment without imported laboratories
+	// serves an empty catalog instead of exposing the section.
+	LabCatalog        bool
 	Server            *connection.ServerConfig
 	DB                *connection.DBConfig
 	Vault             *connection.Vault
@@ -21,6 +25,7 @@ type AppConfigModel struct {
 
 func (c *AppConfigModel) Reload() {
 	c.Debug = os.Getenv("DEBUG") == "true"
+	c.LabCatalog = os.Getenv("LAB_CATALOG_ENABLED") == "true"
 	c.Server = &connection.ServerConfig{
 		Host:              os.Getenv("SERVER_HOST"),
 		Port:              os.Getenv("SERVER_PORT"),

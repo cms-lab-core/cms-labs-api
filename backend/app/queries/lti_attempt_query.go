@@ -147,7 +147,7 @@ func (q *LTIAttemptQueries) listFilter(search *LTIAttemptSearchParams, tx *gorm.
 		q.tableName(&models.LTIAttempt{}) + " AS lti_attempts",
 	).Select(
 		"lti_attempts.id, lti_attempts.attempt_id, lti_attempts.status, lti_attempts.result, lti_attempts.user_id, lti_attempts.server_id, lti_attempts.lti_routing_id, lti_attempts.id, lti_attempts.synchronized_at, lti_attempts.created_at, lti_attempts.updated_at, " +
-			"user.email as user_email, user.name as user_name, servers.name as server_name, lti_routings.name as lti_routing_name, lti_routings.labs_path as labs_path, lti_routings.test_path as test_path",
+			"user.email as user_email, user.name as user_name, servers.name as server_name, lti_routings.name as lti_routing_name, lti_routings.labs_path as repository, lti_routings.test_path as test_path",
 	).Joins(
 		"join " + q.tableName(&models.User{}) + " user on user.id = lti_attempts.user_id",
 	).Joins(

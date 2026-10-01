@@ -14,7 +14,7 @@ type LTIAttemptEditUC struct {
 
 type LTIAttemptEditInputDTO struct {
 	ID       uint                     `json:"id"`
-	ServerID uint                     `json:"server_id"`
+	ServerID *uint                    `json:"server_id,omitempty"`
 	Status   string                   `json:"status" validate:"required"`
 	Result   *models.LTIAttemptResult `json:"result" swaggertype:"object"`
 }
@@ -42,13 +42,7 @@ func (u *LTIAttemptEditUC) Execute(dto LTIAttemptEditInputDTO) (LTIAttemptEditOu
 	if err != nil {
 		return LTIAttemptEditOutputDTO{}, err
 	}
-	entity.ID = dto.ID
-	entity.ServerID = &dto.ServerID
-	entity.Status = dto.Status
-	if dto.Result != nil {
-		ltiResult := datatypes.NewJSONType(*dto.Result)
-		entity.Result = &ltiResult
-	}
+	applyLTIAttemptEdit(&entity, dto)
 	entity.SynchronizedAt = nil
 	err = u.LTIAttemptQueries.Upsert(&entity)
 	if err != nil {
@@ -56,4 +50,16 @@ func (u *LTIAttemptEditUC) Execute(dto LTIAttemptEditInputDTO) (LTIAttemptEditOu
 	}
 	_ = u.LTISyncResultUC.SyncGradeToLTI(entity.AttemptID)
 	return LTIAttemptEditOutputDTO{ID: entity.ID}, err
+}
+
+func applyLTIAttemptEdit(entity *models.LTIAttempt, dto LTIAttemptEditInputDTO) {
+	entity.ID = dto.ID
+	if dto.ServerID != nil {
+		entity.ServerID = dto.ServerID
+	}
+	entity.Status = dto.Status
+	if dto.Result != nil {
+		ltiResult := datatypes.NewJSONType(*dto.Result)
+		entity.Result = &ltiResult
+	}
 }

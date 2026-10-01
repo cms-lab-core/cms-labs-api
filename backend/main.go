@@ -3,6 +3,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 
 	fiber "github.com/gofiber/fiber/v2"
 	_ "github.com/joho/godotenv/autoload" // load .env file automatically
@@ -32,8 +33,12 @@ func main() {
 	task := flag.String("task", "", "Task name")
 	demo := flag.Bool("demo", false, "Seed local full-stack demo records and exit")
 	flag.Parse()
+	taskArgs := flag.Args()
 	if *demo {
 		*task = "demo_seed"
+		if len(taskArgs) > 1 {
+			panic(fmt.Errorf("--demo accepts at most one catalog JSON file"))
+		}
 	}
 	config := configs.FiberConfig()
 	logs.ZeroLogInit(configs.AppConfig.Debug)
@@ -44,7 +49,7 @@ func main() {
 	}
 
 	startup := container.TaskStartup()
-	taskCompleted, err := startup.Startup(task)
+	taskCompleted, err := startup.Startup(task, taskArgs...)
 	if err != nil {
 		panic(err)
 	}

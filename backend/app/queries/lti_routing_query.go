@@ -2,6 +2,7 @@ package queries
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/rs/zerolog"
@@ -25,6 +26,16 @@ func (q *LTIRoutingQueries) Get(id uint) (models.LTIRouting, error) {
 		return entity, LTIRoutingNotFoundError
 	}
 	return entity, result.Error
+}
+
+func (q *LTIRoutingQueries) ListLabs(search string) ([]models.LTIRouting, error) {
+	entities := make([]models.LTIRouting, 0)
+	tx := q.DB.Order("name ASC")
+	if search = strings.TrimSpace(search); search != "" {
+		like := "%" + search + "%"
+		tx = tx.Where("name LIKE ? OR lti_description LIKE ?", like, like)
+	}
+	return entities, tx.Find(&entities).Error
 }
 
 func (q *LTIRoutingQueries) Upsert(entity *models.LTIRouting) error {

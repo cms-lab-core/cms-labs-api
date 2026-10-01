@@ -153,6 +153,41 @@ func (u *LTIAttemptCreateUC) Execute(dto LTIAttemptCreateInputDTO) (LTIAttemptCr
 	return u.PreparedResponseByAttempt(&attempt)
 }
 
+// ExecuteCatalog starts or resumes a catalog laboratory without an LTI launch.
+// The selected route is explicit and never falls back to LTI rules.
+func (u *LTIAttemptCreateUC) ExecuteCatalog(labID uint) (models.LTIAttempt, LTIAttemptCreateOutputDTO, error) {
+	if u.user == nil {
+		return models.LTIAttempt{}, LTIAttemptCreateOutputDTO{}, errors.New("not logged in")
+	}
+	route, err := u.LTIRoutingQueries.Get(labID)
+	if err != nil {
+		return models.LTIAttempt{}, LTIAttemptCreateOutputDTO{}, err
+	}
+	attempt, err := u.LTIAttemptQueries.GetActiveByUserId(u.user.UserID(), route.ID)
+	if err != nil {
+		return models.LTIAttempt{}, LTIAttemptCreateOutputDTO{}, err
+	}
+	if attempt.ID == 0 {
+		attempt = models.LTIAttempt{}
+		attempt.AttemptID = uuid.New().String()
+		attempt.Status = models.AttemptStatusPending
+		attempt.UserID = u.user.UserID()
+		attempt.LTIRoutingID = route.ID
+		if route.Collaboration > 1 {
+			room, roomErr := u.LTIRoomQueries.Create()
+			if roomErr != nil || room == nil {
+				return models.LTIAttempt{}, LTIAttemptCreateOutputDTO{}, jsonrpc.NewRpcError("not_found_room", "not created room")
+			}
+			attempt.RoomID = &room.ID
+		}
+		if err := u.LTIAttemptQueries.Upsert(&attempt); err != nil {
+			return models.LTIAttempt{}, LTIAttemptCreateOutputDTO{}, err
+		}
+	}
+	response, err := u.PreparedResponseByAttempt(&attempt)
+	return attempt, response, err
+}
+
 // AllocatedServer - Функция выделения сервера по правилу из Route или по общему пулу серверов для всей
 // комнаты подключенной к данной попытки
 func (u *LTIAttemptCreateUC) AllocatedServer(attempt *models.LTIAttempt) (models.Server, error) {
@@ -333,7 +368,7 @@ func (u *LTIAttemptCreateUC) PreparedResponseByAttempt(attempt *models.LTIAttemp
 	}
 	var nextUrl string
 	if pnetServer.Type == models.ServerTypeKubernetes {
-		nextUrl, err = url.JoinPath(pnetServer.Url, "/session", attempt.AttemptID)
+		nextUrl, err = url.JoinPath("/session", attempt.AttemptID)
 	} else {
 		nextUrl, err = u.SSOUrlGenerator(
 			pnetServer.Url,

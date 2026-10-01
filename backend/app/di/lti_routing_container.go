@@ -27,3 +27,11 @@ func (di *DIContainer) LTIRoutingDeleteUC() *usecases.LTIRoutingDeleteUC {
 		LTIRoutingQueries: di.Queries.LTIRoutingQueries,
 	}
 }
+
+func (di *DIContainer) LabCatalogUC() *usecases.LabCatalogUC {
+	return &usecases.LabCatalogUC{
+		LTIRoutingQueries: di.Queries.LTIRoutingQueries,
+		LTIAttemptQueries: di.Queries.LTIAttemptQueries,
+		AttemptCreateUC:   di.LTIAttemptCreateUC(),
+	}
+}

@@ -1,6 +1,8 @@
 package controllers
 
 import (
+	"time"
+
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/maintainer64/cms-labs-api/backend/app/di"
 	"github.com/maintainer64/cms-labs-api/backend/app/usecases/auth"
@@ -114,7 +116,8 @@ func UserLogout(c *jsonrpc.Ctx) (interface{}, error) {
 		Name:     cms_client.SSORefreshTokenName,
 		Value:    "",
 		Path:     "/",
-		Expires:  auth.ExpiresRefreshCookie(),
+		Expires:  time.Unix(1, 0),
+		MaxAge:   -1,
 		SameSite: fiber.CookieSameSiteNoneMode,
 		Secure:   true,
 	})

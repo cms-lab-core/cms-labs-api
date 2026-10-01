@@ -1,6 +1,7 @@
 package cms_client
 
 import (
+	"context"
 	"fmt"
 	"net/url"
 
@@ -26,9 +27,13 @@ func (c *CMSClient) SSOToken(grantType string, redirectUri string, code string, 
 }
 
 func (c *CMSClient) SSOUserInfo(accessToken string) (*SSOTokenPublicData, error) {
+	return c.SSOUserInfoContext(context.Background(), accessToken)
+}
+
+func (c *CMSClient) SSOUserInfoContext(ctx context.Context, accessToken string) (*SSOTokenPublicData, error) {
 	const path = "/api/v1/sso/userinfo"
 	var ssoToken SSOTokenPublicData
-	response, err := c.client.R().SetHeader(
+	response, err := c.client.R().SetContext(ctx).SetHeader(
 		"Authorization",
 		fmt.Sprintf("Bearer %s", accessToken),
 	).SetResult(&ssoToken).Get(path)

@@ -16,7 +16,7 @@ type ListAttemptsModel struct {
 	Status         string `json:"status"`
 	ServerClientID string `json:"server_client_id"`
 	RoutingName    string `json:"lti_routing_name"`
-	LabsPath       string `json:"labs_path"`
+	Repository     string `json:"repository"`
 	TestPath       string `json:"test_path"`
 	Result         any    `json:"result,omitempty"`
 }

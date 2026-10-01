@@ -106,6 +106,32 @@ func TestV1LTIAttemptListExternal(t *testing.T) {
 	assert.GreaterOrEqual(t, len(bodyModel.Result.Model), 1)
 }
 
+func TestV1LTIAttemptUpdateStatusPreservesServerWhenOmitted(t *testing.T) {
+	f := NewTestHTTP()
+	defer f.Close()
+
+	fix := setupLTIAttemptFixture(f)
+	authHeader := f.AuthorizationUser(0, nil)
+	attempt := fix.attempts[0]
+
+	statusCode, _ := f.Rpc(&TestRpcRequest{
+		Method: "lti_attempt.update",
+		Params: map[string]interface{}{
+			"id":     attempt.ID,
+			"status": models.AttemptStatusTerminating,
+		},
+		Authorization: authHeader,
+	})
+
+	updated := models.LTIAttempt{}
+	f.DB.First(&updated, attempt.ID)
+	assert.Equal(t, 200, statusCode)
+	assert.Equal(t, models.AttemptStatusTerminating, updated.Status)
+	if assert.NotNil(t, updated.ServerID) {
+		assert.Equal(t, fix.server.ID, *updated.ServerID)
+	}
+}
+
 func TestV1LTIAttemptListExternalFilterByAttemptIDs(t *testing.T) {
 	f := NewTestHTTP()
 	defer f.Close()
