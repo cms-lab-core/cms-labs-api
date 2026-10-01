@@ -1,51 +1,50 @@
 package auth
 
 import (
-	"fmt"
+	"context"
 	"strings"
 
-	jwt "github.com/golang-jwt/jwt/v5"
-
+	resty "github.com/go-resty/resty/v2"
 	"github.com/maintainer64/cms-labs-api/clabgate/pkg/configs"
 	"github.com/maintainer64/cms-labs-api/shared/cms_client"
-
 	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
 )
 
-// ExtractTokenMetadata func to extract metadata from JWT.
+type userInfoProvider interface {
+	SSOUserInfoContext(context.Context, string) (*cms_client.SSOTokenPublicData, error)
+}
+
+// ExtractTokenMetadata validates the bearer token against CMS and returns the
+// authoritative user profile. Clabgate intentionally does not keep CMS signing
+// keys or duplicate token validation policy.
 func ExtractTokenMetadata(
 	c *jsonrpc.Ctx,
 	roles []string,
 ) (*cms_client.SSOTokenPublicData, error) {
-	publicKey := configs.AppConfig.JWT.PublicKey
-	if publicKey == nil {
-		return nil, jsonrpc.NewRpcError("unauthorized", "JWT public key is not configured")
+	cmsConfig := configs.AppConfig.CMS
+	if cmsConfig.BaseURL == "" {
+		return nil, jsonrpc.NewRpcError("unauthorized", "CMS userinfo endpoint is not configured")
 	}
+	client := cms_client.NewCMSClient(&cms_client.CMSClientConfig{
+		Debug:             configs.AppConfig.Debug,
+		MaxTimeoutSeconds: cmsConfig.MaxTimeoutSeconds,
+		ClientID:          cmsConfig.ClientID,
+		Token:             cmsConfig.Token,
+		BaseUrl:           cmsConfig.BaseURL,
+	}, resty.New())
+	return extractTokenMetadata(c, roles, client)
+}
 
-	options := []jwt.ParserOption{
-		jwt.WithValidMethods([]string{jwt.SigningMethodRS256.Alg()}),
-		jwt.WithExpirationRequired(),
+func extractTokenMetadata(
+	c *jsonrpc.Ctx,
+	roles []string,
+	client userInfoProvider,
+) (*cms_client.SSOTokenPublicData, error) {
+	accessToken := extractToken(c)
+	if accessToken == "" {
+		return nil, jsonrpc.NewRpcError("unauthorized", "bearer token is required")
 	}
-	if configs.AppConfig.JWT.Issuer != "" {
-		options = append(options, jwt.WithIssuer(configs.AppConfig.JWT.Issuer))
-	}
-	if configs.AppConfig.JWT.Audience != "" {
-		options = append(options, jwt.WithAudience(configs.AppConfig.JWT.Audience))
-	}
-
-	token, err := jwt.Parse(extractToken(c), func(token *jwt.Token) (interface{}, error) {
-		if token.Method != jwt.SigningMethodRS256 {
-			return nil, fmt.Errorf("unexpected signing method %q", token.Method.Alg())
-		}
-		return publicKey, nil
-	}, options...)
-	if err != nil {
-		return nil, jsonrpc.NewRpcError("unauthorized", "unauthorized")
-	}
-	if !token.Valid {
-		return nil, jsonrpc.NewRpcError("unauthorized", "invalid token")
-	}
-	tokenData, err := cms_client.SSODecodeToken(token)
+	tokenData, err := client.SSOUserInfoContext(c.FiberCtx.UserContext(), accessToken)
 	if err != nil {
 		return nil, jsonrpc.NewRpcError("unauthorized", "unauthorized")
 	}
@@ -56,13 +55,9 @@ func ExtractTokenMetadata(
 }
 
 func extractToken(c *jsonrpc.Ctx) string {
-	bearToken := c.FiberCtx.Get("Authorization")
-
-	// Normally Authorization HTTP header.
-	onlyToken := strings.Split(bearToken, " ")
-	if len(onlyToken) == 2 {
-		return onlyToken[1]
+	parts := strings.Fields(c.FiberCtx.Get("Authorization"))
+	if len(parts) == 2 && strings.EqualFold(parts[0], "Bearer") {
+		return parts[1]
 	}
-
 	return ""
 }

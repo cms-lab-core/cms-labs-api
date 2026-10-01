@@ -51,6 +51,7 @@ func decodeCheckerGrade(payload, checkID, logs string) (checkerGrade, error) {
 // Reconcile synchronizes the CMS attempt lifecycle with Kubernetes, which is the
 // source of truth for runtime sessions. It replaces the old JupyterHub idle checker.
 func (u *SessionsUC) Reconcile(ctx context.Context) (int, error) {
+	changes := 0
 	sessions, err := u.KubernetesAdminQuery.ListSessions(ctx, "", configs.AppConfig.Session.WorkspacePrefix)
 	if err != nil {
 		return 0, fmt.Errorf("list Kubernetes sessions: %w", err)
@@ -82,6 +83,7 @@ func (u *SessionsUC) Reconcile(ctx context.Context) (int, error) {
 			if markErr := u.KubernetesAdminQuery.MarkCheckerResultSynced(ctx, result.Namespace, result.JobName); markErr != nil {
 				return 0, fmt.Errorf("mark checker result %s synced: %w", result.JobName, markErr)
 			}
+			changes++
 		}
 	}
 
@@ -93,7 +95,6 @@ func (u *SessionsUC) Reconcile(ctx context.Context) (int, error) {
 		return 0, fmt.Errorf("list CMS attempts: %w", err)
 	}
 
-	updated := 0
 	for _, attempt := range attempts {
 		session, sessionExists := sessionsByAttempt[attempt.AttemptID]
 		switch attempt.Status {
@@ -106,44 +107,49 @@ func (u *SessionsUC) Reconcile(ctx context.Context) (int, error) {
 					u.Logger.Error().Err(provisionErr).Str("attempt_id", attempt.AttemptID).Msg("provision pending session")
 					continue
 				}
+				changes++
 				session = provisioned
 				sessionExists = true
 				sessionsByAttempt[attempt.AttemptID] = provisioned
 			}
 			if sessionExists && session.Phase == queries.SessionPhaseReady {
 				if phaseErr := u.KubernetesAdminQuery.MarkSessionPhase(ctx, session.Namespace, queries.SessionPhaseReady); phaseErr != nil {
-					return updated, fmt.Errorf("mark session %s ready: %w", attempt.AttemptID, phaseErr)
+					return changes, fmt.Errorf("mark session %s ready: %w", attempt.AttemptID, phaseErr)
 				}
 				count, updateErr := u.CMSClient.UpdateAttempts([]cms_client.UpdateAttemptParams{{AttemptID: attempt.AttemptID, Status: "active"}})
 				if updateErr != nil {
-					return updated, fmt.Errorf("activate ready attempt %s: %w", attempt.AttemptID, updateErr)
+					return changes, fmt.Errorf("activate ready attempt %s: %w", attempt.AttemptID, updateErr)
 				}
 				if count != 1 {
-					return updated, fmt.Errorf("activate ready attempt %s: CMS updated %d attempts", attempt.AttemptID, count)
+					return changes, fmt.Errorf("activate ready attempt %s: CMS updated %d attempts", attempt.AttemptID, count)
 				}
 				if phaseErr := u.KubernetesAdminQuery.MarkSessionPhase(ctx, session.Namespace, queries.SessionPhaseActive); phaseErr != nil {
-					return updated, fmt.Errorf("mark session %s active: %w", attempt.AttemptID, phaseErr)
+					return changes, fmt.Errorf("mark session %s active: %w", attempt.AttemptID, phaseErr)
 				}
-				updated++
+				changes++
 			}
 		case "active":
 			if !sessionExists {
 				count, updateErr := u.CMSClient.UpdateAttempts([]cms_client.UpdateAttemptParams{{AttemptID: attempt.AttemptID, Status: "completed"}})
 				if updateErr != nil {
-					return updated, fmt.Errorf("complete missing session %s: %w", attempt.AttemptID, updateErr)
+					return changes, fmt.Errorf("complete missing session %s: %w", attempt.AttemptID, updateErr)
 				}
-				updated += count
+				changes += count
 			} else if session.Phase == queries.SessionPhasePending || session.Phase == queries.SessionPhaseProvisioning {
 				if _, provisionErr := u.ensureAttemptSession(ctx, attempt, strconv.FormatInt(attempt.UserID, 10), attempt.UserName); provisionErr != nil {
 					u.Logger.Error().Err(provisionErr).Str("attempt_id", attempt.AttemptID).Msg("repair active session")
+				} else {
+					changes++
 				}
 			} else if phaseErr := u.KubernetesAdminQuery.MarkSessionPhase(ctx, session.Namespace, queries.SessionPhaseActive); phaseErr != nil {
-				return updated, fmt.Errorf("mark session %s active: %w", attempt.AttemptID, phaseErr)
+				return changes, fmt.Errorf("mark session %s active: %w", attempt.AttemptID, phaseErr)
 			}
 		case "terminating":
 			if sessionExists {
 				if deleteErr := u.KubernetesAdminQuery.DeleteSession(ctx, attempt.AttemptID, "", true); deleteErr != nil {
 					u.Logger.Error().Err(deleteErr).Str("attempt_id", attempt.AttemptID).Msg("delete terminating session")
+				} else {
+					changes++
 				}
 				// Namespace deletion is asynchronous. Keep the CMS attempt terminating
 				// until a later list confirms that all namespaced resources are gone.
@@ -151,10 +157,10 @@ func (u *SessionsUC) Reconcile(ctx context.Context) (int, error) {
 			}
 			count, updateErr := u.CMSClient.UpdateAttempts([]cms_client.UpdateAttemptParams{{AttemptID: attempt.AttemptID, Status: "completed"}})
 			if updateErr != nil {
-				return updated, fmt.Errorf("complete terminating attempt %s: %w", attempt.AttemptID, updateErr)
+				return changes, fmt.Errorf("complete terminating attempt %s: %w", attempt.AttemptID, updateErr)
 			}
-			updated += count
+			changes += count
 		}
 	}
-	return updated, nil
+	return changes, nil
 }

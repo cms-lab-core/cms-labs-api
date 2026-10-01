@@ -4,11 +4,11 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/url"
-	"path"
 	"sort"
 	"strings"
 	"time"
@@ -38,7 +38,6 @@ const (
 
 	SessionAttemptAnnotation      = "labs.cmslabs.ru/attempt-id"
 	SessionUsernameAnnotation     = "labs.cmslabs.ru/username"
-	SessionLabPathAnnotation      = "labs.cmslabs.ru/lab-path"
 	SessionTestPathAnnotation     = "labs.cmslabs.ru/test-path"
 	SessionTitleAnnotation        = "labs.cmslabs.ru/title"
 	SessionTopologyAnnotation     = "labs.cmslabs.ru/topology-required"
@@ -81,7 +80,6 @@ type SessionRecord struct {
 	OwnerID           string       `json:"owner_id"`
 	Username          string       `json:"username"`
 	Title             string       `json:"title,omitempty"`
-	LabPath           string       `json:"lab_path,omitempty"`
 	TestPath          string       `json:"test_path,omitempty"`
 	TaskRevision      string       `json:"task_revision,omitempty"`
 	Phase             SessionPhase `json:"phase"`
@@ -92,7 +90,36 @@ type SessionRecord struct {
 	DesiredAccepted   bool         `json:"desired_resources_accepted"`
 	CheckerRunning    bool         `json:"checker_running"`
 	CheckerSuccessful *bool        `json:"checker_successful,omitempty"`
+	Checker           *CheckerRun  `json:"checker,omitempty"`
 	CreatedAt         time.Time    `json:"created_at"`
+}
+
+type CheckerRun struct {
+	JobName       string              `json:"job_name"`
+	CheckID       string              `json:"check_id,omitempty"`
+	Status        string              `json:"status"`
+	StartedAt     *time.Time          `json:"started_at,omitempty"`
+	CompletedAt   *time.Time          `json:"completed_at,omitempty"`
+	MaxScore      float64             `json:"max_score,omitempty"`
+	CurrentScore  float64             `json:"current_score,omitempty"`
+	ResultDisplay string              `json:"result_display,omitempty"`
+	Report        string              `json:"report,omitempty"`
+	Logs          string              `json:"logs,omitempty"`
+	Tasks         []CheckerTaskResult `json:"tasks,omitempty"`
+	Error         string              `json:"error,omitempty"`
+}
+
+type CheckerTaskResult struct {
+	Title       string           `json:"title"`
+	Description string           `json:"description,omitempty"`
+	Logs        []CheckerTaskLog `json:"logs,omitempty"`
+	Complete    bool             `json:"complete"`
+}
+
+type CheckerTaskLog struct {
+	Node      string `json:"node,omitempty"`
+	Namespace string `json:"namespace,omitempty"`
+	Message   string `json:"message"`
 }
 
 type EnsureSessionParams struct {
@@ -100,7 +127,6 @@ type EnsureSessionParams struct {
 	OwnerID         string
 	Username        string
 	Title           string
-	LabPath         string
 	TestPath        string
 	TopologyYAML    string
 	JupyterImage    string
@@ -206,7 +232,6 @@ func (k *KubernetesAdminQuery) ensureNamespace(
 		desiredAnnotations := map[string]string{
 			SessionAttemptAnnotation:      params.AttemptID,
 			SessionUsernameAnnotation:     params.Username,
-			SessionLabPathAnnotation:      params.LabPath,
 			SessionTestPathAnnotation:     params.TestPath,
 			SessionTitleAnnotation:        params.Title,
 			SessionRuntimeAnnotation:      "jupyter",
@@ -248,7 +273,6 @@ func (k *KubernetesAdminQuery) ensureNamespace(
 			Annotations: map[string]string{
 				SessionAttemptAnnotation:      params.AttemptID,
 				SessionUsernameAnnotation:     params.Username,
-				SessionLabPathAnnotation:      params.LabPath,
 				SessionTestPathAnnotation:     params.TestPath,
 				SessionTitleAnnotation:        params.Title,
 				SessionRuntimeAnnotation:      "jupyter",
@@ -437,7 +461,7 @@ func (k *KubernetesAdminQuery) ensureWorkspace(
 							"start-notebook.py",
 							"--ServerApp.base_url=" + baseURL,
 							"--ServerApp.allow_remote_access=True",
-							"--IdentityProvider.token=",
+							"--ServerApp.identity_provider_class=cms_labs_jupyter.identity.ProxyIdentityProvider",
 						},
 						Env: []corev1.EnvVar{
 							{Name: "ATTEMPT_ID", Value: params.AttemptID},
@@ -544,7 +568,6 @@ func (k *KubernetesAdminQuery) sessionFromNamespace(
 		OwnerID:         namespace.Labels[SessionOwnerLabel],
 		Username:        namespace.Annotations[SessionUsernameAnnotation],
 		Title:           namespace.Annotations[SessionTitleAnnotation],
-		LabPath:         namespace.Annotations[SessionLabPathAnnotation],
 		TestPath:        namespace.Annotations[SessionTestPathAnnotation],
 		TaskRevision:    namespace.Annotations[SessionTaskRevisionAnnotation],
 		Phase:           SessionPhaseProvisioning,
@@ -591,12 +614,14 @@ func (k *KubernetesAdminQuery) sessionFromNamespace(
 			return jobs.Items[i].CreationTimestamp.Before(&jobs.Items[j].CreationTimestamp)
 		})
 		job := jobs.Items[len(jobs.Items)-1]
-		record.CheckerRunning = job.Status.Active > 0
-		if job.Status.Succeeded > 0 {
-			value := true
-			record.CheckerSuccessful = &value
-		} else if job.Status.Failed > 0 {
-			value := false
+		record.CheckerRunning = job.Status.Succeeded == 0 && job.Status.Failed == 0
+		checker, checkerErr := k.checkerRun(ctx, namespace.Name, &job)
+		if checkerErr != nil {
+			return SessionRecord{}, fmt.Errorf("read latest checker run: %w", checkerErr)
+		}
+		record.Checker = checker
+		if checker.Status == "passed" || checker.Status == "failed" {
+			value := checker.Status == "passed"
 			record.CheckerSuccessful = &value
 		}
 	}
@@ -609,19 +634,131 @@ func (k *KubernetesAdminQuery) sessionFromNamespace(
 		}
 	}
 	if record.WorkspaceReady {
-		taskRef := namespace.Annotations[SessionTaskRevisionAnnotation]
+		// nbgitpuller's branch parameter only accepts a remote branch name. The
+		// resolved commit is intentionally kept as session metadata and used to
+		// pin the Kubernetes lab bundle, but passing that SHA as branch makes
+		// nbgitpuller reject an otherwise valid GitHub repository.
+		taskRef := namespace.Annotations[SessionTaskRefAnnotation]
 		if taskRef == "" {
-			taskRef = namespace.Annotations[SessionTaskRefAnnotation]
+			taskRef = namespace.Annotations[SessionTaskRevisionAnnotation]
 		}
 		record.WorkspaceURL = buildWorkspaceURL(
 			workspacePrefix,
 			record.ID,
 			namespace.Annotations[SessionTaskRepoAnnotation],
 			taskRef,
-			record.LabPath,
 		)
 	}
 	return record, nil
+}
+
+func (k *KubernetesAdminQuery) checkerRun(
+	ctx context.Context,
+	namespace string,
+	job *batchv1.Job,
+) (*CheckerRun, error) {
+	run := &CheckerRun{
+		JobName: job.Name,
+		CheckID: job.Annotations[CheckerIDAnnotation],
+		Status:  "pending",
+	}
+	if job.Status.StartTime != nil {
+		startedAt := job.Status.StartTime.Time
+		run.StartedAt = &startedAt
+	}
+	if job.Status.CompletionTime != nil {
+		completedAt := job.Status.CompletionTime.Time
+		run.CompletedAt = &completedAt
+	}
+	if job.Status.Succeeded == 0 && job.Status.Failed == 0 {
+		if job.Status.Active > 0 || job.Status.StartTime != nil {
+			run.Status = "running"
+		}
+		return run, nil
+	}
+
+	pods, err := k.clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+		LabelSelector: labels.Set{"batch.kubernetes.io/job-name": job.Name}.AsSelector().String(),
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list checker pods for %s: %w", job.Name, err)
+	}
+	run.Status = "failed"
+	for _, pod := range pods.Items {
+		podLogs := ""
+		if rawLogs, logsErr := k.clientset.CoreV1().Pods(namespace).GetLogs(
+			pod.Name,
+			&corev1.PodLogOptions{Container: "checker"},
+		).DoRaw(ctx); logsErr == nil {
+			const maxCheckerLogBytes = 64 * 1024
+			if len(rawLogs) > maxCheckerLogBytes {
+				rawLogs = rawLogs[len(rawLogs)-maxCheckerLogBytes:]
+			}
+			podLogs = string(rawLogs)
+			run.Logs = podLogs
+		}
+		for _, status := range pod.Status.ContainerStatuses {
+			if status.Name != "checker" || status.State.Terminated == nil {
+				continue
+			}
+			terminated := status.State.Terminated
+			if run.CompletedAt == nil && !terminated.FinishedAt.IsZero() {
+				completedAt := terminated.FinishedAt.Time
+				run.CompletedAt = &completedAt
+			}
+			payload := strings.TrimSpace(terminated.Message)
+			if payload == "" {
+				if terminated.Message != "" {
+					run.Error = terminated.Message
+				} else if terminated.Reason != "" {
+					run.Error = terminated.Reason
+				}
+				continue
+			}
+			if decodeErr := json.Unmarshal([]byte(payload), run); decodeErr != nil {
+				run.Error = "checker returned an invalid result"
+				continue
+			}
+			if podLogs != "" {
+				run.Logs = podLogs
+			}
+			run.JobName = job.Name
+			run.CheckID = job.Annotations[CheckerIDAnnotation]
+			run.StartedAt = timePointer(job.Status.StartTime)
+			if job.Status.CompletionTime != nil {
+				completedAt := job.Status.CompletionTime.Time
+				run.CompletedAt = &completedAt
+			}
+			run.Status = checkerResultStatus(run, job.Status.Succeeded > 0)
+		}
+	}
+	if run.Error == "" && run.Status == "failed" && job.Status.Failed > 0 {
+		run.Error = "checker job failed"
+	}
+	return run, nil
+}
+
+func checkerResultStatus(run *CheckerRun, jobSucceeded bool) string {
+	if !jobSucceeded || run.MaxScore <= 0 || run.CurrentScore < 0 || run.CurrentScore > run.MaxScore {
+		return "failed"
+	}
+	for _, task := range run.Tasks {
+		if !task.Complete {
+			return "failed"
+		}
+	}
+	if run.CurrentScore < run.MaxScore {
+		return "failed"
+	}
+	return "passed"
+}
+
+func timePointer(value *metav1.Time) *time.Time {
+	if value == nil {
+		return nil
+	}
+	timestamp := value.Time
+	return &timestamp
 }
 
 func (k *KubernetesAdminQuery) RunChecker(ctx context.Context, params RunCheckerParams) (string, error) {
@@ -677,7 +814,6 @@ func (k *KubernetesAdminQuery) RunChecker(ctx context.Context, params RunChecker
 						Env: []corev1.EnvVar{
 							{Name: "SESSION_ID", Value: params.SessionID},
 							{Name: "ATTEMPT_ID", Value: params.AttemptID},
-							{Name: "LAB_PATH", Value: params.LabPath},
 							{Name: "TEST_PATH", Value: params.TestPath},
 							{Name: "SESSION_NAMESPACE", Value: params.Namespace},
 						},
@@ -787,16 +923,24 @@ func (k *KubernetesAdminQuery) MarkSessionPhase(ctx context.Context, namespaceNa
 	return err
 }
 
-func buildWorkspaceURL(prefix, sessionID, repository, ref, labPath string) string {
+// SessionWorkspaceTaskDirectory is the single directory nbgitpuller clones the
+// lab repository into. A fixed name keeps the workspace stable across routing
+// changes and keeps the repository basename out of the learner's file browser.
+const SessionWorkspaceTaskDirectory = "task"
+
+// buildWorkspaceURL asks nbgitpuller to sync the repository into a fixed task
+// directory and then to open that directory. nbgitpuller derives its redirect
+// target from the targetpath alone when urlpath is absent, so the repository
+// root is opened instead of a directory named after the repository.
+func buildWorkspaceURL(prefix, sessionID, repository, ref string) string {
 	base := strings.TrimRight(prefix, "/") + "/" + sessionID
-	cleanLabPath := strings.Trim(path.Clean("/"+labPath), "/")
-	if repository == "" || ref == "" || cleanLabPath == "" {
+	if strings.TrimSpace(repository) == "" || strings.TrimSpace(ref) == "" {
 		return base + "/lab"
 	}
 	query := url.Values{
-		"repo":    []string{repository},
-		"branch":  []string{ref},
-		"urlpath": []string{"lab/tree/" + cleanLabPath},
+		"repo":       []string{repository},
+		"branch":     []string{ref},
+		"targetpath": []string{SessionWorkspaceTaskDirectory},
 	}
 	return base + "/git-pull?" + query.Encode()
 }

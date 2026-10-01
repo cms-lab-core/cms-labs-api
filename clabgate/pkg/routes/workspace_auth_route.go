@@ -17,7 +17,7 @@ func WorkspaceAuthRoutes(app *fiber.App) {
 
 func workspaceExchange(c *fiber.Ctx) error {
 	config := configs.AppConfig.Session
-	cookie, destination, sessionID, err := usecases.ExchangeWorkspaceGrant(
+	cookie, destination, sessionID, _, err := usecases.ExchangeWorkspaceGrant(
 		config.WorkspaceSecret,
 		c.Query("grant"),
 		time.Duration(config.WorkspaceCookieTTL)*time.Second,
@@ -38,12 +38,18 @@ func workspaceExchange(c *fiber.Ctx) error {
 }
 
 func workspaceVerify(c *fiber.Ctx) error {
-	if err := usecases.VerifyWorkspaceCookie(
+	identity, err := usecases.VerifyWorkspaceCookie(
 		configs.AppConfig.Session.WorkspaceSecret,
 		c.Cookies(usecases.WorkspaceCookieName),
 		c.Get("X-Original-URI"),
-	); err != nil {
+	)
+	if err != nil {
 		return c.Status(http.StatusUnauthorized).SendString("workspace authorization required")
 	}
+	encoded, err := usecases.EncodeWorkspaceIdentity(identity)
+	if err != nil {
+		return c.Status(http.StatusInternalServerError).SendString("workspace identity unavailable")
+	}
+	c.Set("X-CMS-Identity", encoded)
 	return c.SendStatus(http.StatusNoContent)
 }

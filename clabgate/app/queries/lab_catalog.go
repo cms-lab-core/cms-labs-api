@@ -2,7 +2,9 @@ package queries
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -14,6 +16,8 @@ import (
 	"strings"
 
 	resty "github.com/go-resty/resty/v2"
+	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
+	"sigs.k8s.io/yaml"
 )
 
 const gitLabPageSize = 100
@@ -23,6 +27,7 @@ type repositoryProvider string
 const (
 	providerGitLab repositoryProvider = "gitlab"
 	providerGitHub repositoryProvider = "github"
+	providerGit    repositoryProvider = "git"
 )
 
 type repositoryLocation struct {
@@ -80,6 +85,19 @@ func (c *LabCatalog) Bundle(ctx context.Context, labsPath string) (LabBundle, er
 	return c.BundleAt(ctx, labsPath, "")
 }
 
+// BundleFor resolves a lab using repository metadata pinned to the CMS route.
+// The configured catalog remains a fallback for legacy attempts.
+func (c *LabCatalog) BundleFor(ctx context.Context, projectURL, branch, labsPath, pinnedRevision string) (LabBundle, error) {
+	scoped := *c
+	if strings.TrimSpace(projectURL) != "" {
+		scoped.projectURL = strings.TrimRight(strings.TrimSpace(projectURL), "/")
+	}
+	if strings.TrimSpace(branch) != "" {
+		scoped.branch = strings.TrimSpace(branch)
+	}
+	return scoped.BundleAt(ctx, labsPath, pinnedRevision)
+}
+
 // BundleAt uses an already resolved commit when retrying a partially created
 // session, so a moving branch cannot alter that session between retries.
 func (c *LabCatalog) BundleAt(ctx context.Context, labsPath, pinnedRevision string) (LabBundle, error) {
@@ -98,7 +116,7 @@ func (c *LabCatalog) BundleAt(ctx context.Context, labsPath, pinnedRevision stri
 	// and hosted CI can therefore receive a 403 even for a public repository.
 	// Git's smart HTTP protocol has no such API quota and still gives us an
 	// immutable commit to pin retries to.
-	if repository.provider == providerGitHub && c.token == "" {
+	if repository.provider == providerGit || (repository.provider == providerGitHub && c.token == "") {
 		return c.bundleFromGit(ctx, repository, cleaned, pinnedRevision)
 	}
 
@@ -128,8 +146,12 @@ func (c *LabCatalog) BundleAt(ctx context.Context, labsPath, pinnedRevision stri
 		}
 	}
 
+	manifest := strings.Join(filterTopologyDocuments(documents), "\n---\n")
+	if strings.TrimSpace(manifest) == "" {
+		return LabBundle{}, fmt.Errorf("lab directory %q contains no clabernetes Topology manifests", repositoryRootLabel(cleaned))
+	}
 	return LabBundle{
-		Manifest:   strings.Join(documents, "\n---\n"),
+		Manifest:   manifest,
 		Revision:   revision,
 		Files:      files,
 		ProjectURL: c.projectURL,
@@ -157,11 +179,11 @@ func (c *LabCatalog) bundleFromGit(
 		}
 		if err = runGit(ctx, "", "clone", "--quiet", "--depth=1", "--single-branch", "--branch", branch,
 			"--", repository.cloneURL, repositoryDir); err != nil {
-			return LabBundle{}, fmt.Errorf("clone GitHub ref %q: %w", branch, err)
+			return LabBundle{}, fmt.Errorf("clone repository ref %q: %w", branch, err)
 		}
 	} else {
 		if !isGitCommit(revision) {
-			return LabBundle{}, fmt.Errorf("invalid pinned GitHub revision %q", revision)
+			return LabBundle{}, fmt.Errorf("invalid pinned repository revision %q", revision)
 		}
 		if err = os.Mkdir(repositoryDir, 0o700); err != nil {
 			return LabBundle{}, fmt.Errorf("create task repository directory: %w", err)
@@ -173,32 +195,36 @@ func (c *LabCatalog) bundleFromGit(
 			return LabBundle{}, fmt.Errorf("configure task repository: %w", err)
 		}
 		if err = runGit(ctx, repositoryDir, "fetch", "--quiet", "--depth=1", "origin", revision); err != nil {
-			return LabBundle{}, fmt.Errorf("fetch pinned GitHub revision %q: %w", revision, err)
+			return LabBundle{}, fmt.Errorf("fetch pinned repository revision %q: %w", revision, err)
 		}
 		if err = runGit(ctx, repositoryDir, "checkout", "--quiet", "--detach", "FETCH_HEAD"); err != nil {
-			return LabBundle{}, fmt.Errorf("checkout pinned GitHub revision %q: %w", revision, err)
+			return LabBundle{}, fmt.Errorf("checkout pinned repository revision %q: %w", revision, err)
 		}
 	}
 
 	resolvedRevision, err := gitOutput(ctx, repositoryDir, "rev-parse", "HEAD")
 	if err != nil {
-		return LabBundle{}, fmt.Errorf("resolve checked out GitHub revision: %w", err)
+		return LabBundle{}, fmt.Errorf("resolve checked out repository revision: %w", err)
 	}
 	resolvedRevision = strings.TrimSpace(resolvedRevision)
 	if revision != "" && !strings.EqualFold(revision, resolvedRevision) {
-		return LabBundle{}, fmt.Errorf("pinned GitHub revision mismatch: expected %s, got %s", revision, resolvedRevision)
+		return LabBundle{}, fmt.Errorf("pinned repository revision mismatch: expected %s, got %s", revision, resolvedRevision)
 	}
 
-	labDirectory := filepath.Join(repositoryDir, filepath.FromSlash(labsPath))
+	label := repositoryRootLabel(labsPath)
+	labDirectory := repositoryDir
+	if labsPath != "" {
+		labDirectory = filepath.Join(repositoryDir, filepath.FromSlash(labsPath))
+	}
 	info, err := os.Stat(labDirectory)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return LabBundle{}, fmt.Errorf("lab directory %q was not found in GitHub", labsPath)
+			return LabBundle{}, fmt.Errorf("lab directory %q was not found in repository", label)
 		}
-		return LabBundle{}, fmt.Errorf("inspect lab directory %q: %w", labsPath, err)
+		return LabBundle{}, fmt.Errorf("inspect lab directory %q: %w", label, err)
 	}
 	if !info.IsDir() {
-		return LabBundle{}, fmt.Errorf("lab path %q is not a directory", labsPath)
+		return LabBundle{}, fmt.Errorf("lab path %q is not a directory", label)
 	}
 
 	files := make([]string, 0)
@@ -221,10 +247,10 @@ func (c *LabCatalog) bundleFromGit(
 		return nil
 	})
 	if err != nil {
-		return LabBundle{}, fmt.Errorf("list task manifests in %q: %w", labsPath, err)
+		return LabBundle{}, fmt.Errorf("list task manifests in %q: %w", label, err)
 	}
 	if len(files) == 0 {
-		return LabBundle{}, fmt.Errorf("lab directory %q contains no YAML manifests", labsPath)
+		return LabBundle{}, fmt.Errorf("lab directory %q contains no YAML manifests", label)
 	}
 	sort.Strings(files)
 
@@ -239,12 +265,52 @@ func (c *LabCatalog) bundleFromGit(
 		}
 	}
 
+	manifest := strings.Join(filterTopologyDocuments(documents), "\n---\n")
+	if strings.TrimSpace(manifest) == "" {
+		return LabBundle{}, fmt.Errorf("lab directory %q contains no clabernetes Topology manifests", label)
+	}
 	return LabBundle{
-		Manifest:   strings.Join(documents, "\n---\n"),
+		Manifest:   manifest,
 		Revision:   resolvedRevision,
 		Files:      files,
 		ProjectURL: c.projectURL,
 	}, nil
+}
+
+// filterTopologyDocuments keeps only the objects session provisioning accepts:
+// v1 ConfigMap and clabernetes Topology. A lab repository also carries CI
+// workflows and its own deployment manifests, and those must not reach the
+// session namespace. Allowed objects are re-emitted one document per manifest,
+// so a mixed file contributes only its lab objects.
+func filterTopologyDocuments(documents []string) []string {
+	kept := make([]string, 0, len(documents))
+	for _, document := range documents {
+		decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(document), 4096)
+		for {
+			raw := map[string]any{}
+			if err := decoder.Decode(&raw); errors.Is(err, io.EOF) {
+				break
+			} else if err != nil {
+				// A file that is not Kubernetes YAML at all is not a manifest.
+				break
+			}
+			if len(raw) == 0 {
+				continue
+			}
+			apiVersion, _ := raw["apiVersion"].(string)
+			kind, _ := raw["kind"].(string)
+			if (apiVersion != "v1" || kind != "ConfigMap") &&
+				(apiVersion != "c9s.run/v1alpha1" || kind != "Topology") {
+				continue
+			}
+			encoded, err := yaml.Marshal(raw)
+			if err != nil {
+				continue
+			}
+			kept = append(kept, strings.TrimSpace(string(encoded)))
+		}
+	}
+	return kept
 }
 
 func runGit(ctx context.Context, directory string, args ...string) error {
@@ -318,6 +384,7 @@ func (c *LabCatalog) resolveRevision(ctx context.Context, repository repositoryL
 }
 
 func (c *LabCatalog) listYAMLFiles(ctx context.Context, repository repositoryLocation, labsPath, revision string) ([]string, error) {
+	label := repositoryRootLabel(labsPath)
 	if repository.provider == providerGitHub {
 		tree := gitHubTree{}
 		response, err := c.request(ctx, repository.provider).
@@ -325,20 +392,20 @@ func (c *LabCatalog) listYAMLFiles(ctx context.Context, repository repositoryLoc
 			SetQueryParam("recursive", "1").
 			Get(repository.apiBase + "/repos/" + repository.project + "/git/trees/" + url.PathEscape(revision))
 		if err != nil {
-			return nil, fmt.Errorf("list task manifests in %q: %w", labsPath, err)
+			return nil, fmt.Errorf("list task manifests in %q: %w", label, err)
 		}
 		if response.StatusCode() == http.StatusNotFound {
-			return nil, fmt.Errorf("lab directory %q was not found in GitHub", labsPath)
+			return nil, fmt.Errorf("lab directory %q was not found in GitHub", label)
 		}
 		if response.StatusCode() < http.StatusOK || response.StatusCode() >= http.StatusMultipleChoices {
-			return nil, fmt.Errorf("list task manifests in %q: HTTP %d", labsPath, response.StatusCode())
+			return nil, fmt.Errorf("list task manifests in %q: HTTP %d", label, response.StatusCode())
 		}
 		if tree.Truncated {
 			return nil, fmt.Errorf("GitHub repository tree is truncated; split the task catalog or use GitLab")
 		}
 		files := filterYAMLFiles(tree.Tree, labsPath)
 		if len(files) == 0 {
-			return nil, fmt.Errorf("lab directory %q contains no YAML manifests", labsPath)
+			return nil, fmt.Errorf("lab directory %q contains no YAML manifests", label)
 		}
 		return files, nil
 	}
@@ -347,21 +414,24 @@ func (c *LabCatalog) listYAMLFiles(ctx context.Context, repository repositoryLoc
 	files := make([]string, 0)
 	for pageNumber := 1; ; pageNumber++ {
 		entries := []gitLabTreeEntry{}
-		response, err := c.request(ctx, repository.provider).
+		request := c.request(ctx, repository.provider).
 			SetResult(&entries).
 			SetQueryParams(map[string]string{
-				"path": labsPath, "ref": revision, "recursive": "true",
+				"ref": revision, "recursive": "true",
 				"per_page": strconv.Itoa(gitLabPageSize), "page": strconv.Itoa(pageNumber),
-			}).
-			Get(projectAPI + "/repository/tree")
+			})
+		if labsPath != "" {
+			request = request.SetQueryParam("path", labsPath)
+		}
+		response, err := request.Get(projectAPI + "/repository/tree")
 		if err != nil {
-			return nil, fmt.Errorf("list task manifests in %q: %w", labsPath, err)
+			return nil, fmt.Errorf("list task manifests in %q: %w", label, err)
 		}
 		if response.StatusCode() == http.StatusNotFound {
-			return nil, fmt.Errorf("lab directory %q was not found in GitLab", labsPath)
+			return nil, fmt.Errorf("lab directory %q was not found in GitLab", label)
 		}
 		if response.StatusCode() < http.StatusOK || response.StatusCode() >= http.StatusMultipleChoices {
-			return nil, fmt.Errorf("list task manifests in %q: HTTP %d", labsPath, response.StatusCode())
+			return nil, fmt.Errorf("list task manifests in %q: HTTP %d", label, response.StatusCode())
 		}
 		for _, entry := range entries {
 			extension := strings.ToLower(path.Ext(entry.Path))
@@ -373,12 +443,18 @@ func (c *LabCatalog) listYAMLFiles(ctx context.Context, repository repositoryLoc
 			break
 		}
 	}
+	if len(files) == 0 {
+		return nil, fmt.Errorf("lab directory %q contains no YAML manifests", label)
+	}
 	sort.Strings(files)
 	return files, nil
 }
 
 func filterYAMLFiles(entries []gitLabTreeEntry, labsPath string) []string {
-	prefix := strings.TrimSuffix(labsPath, "/") + "/"
+	prefix := ""
+	if labsPath != "" {
+		prefix = strings.TrimSuffix(labsPath, "/") + "/"
+	}
 	files := make([]string, 0)
 	for _, entry := range entries {
 		extension := strings.ToLower(path.Ext(entry.Path))
@@ -444,12 +520,34 @@ func parseRepositoryURL(raw string) (repositoryLocation, error) {
 			cloneURL: parsed.Scheme + "://" + parsed.Host + "/" + decoded + ".git",
 		}, nil
 	}
+	if strings.HasSuffix(strings.ToLower(parsed.Path), ".git") {
+		return repositoryLocation{
+			provider: providerGit,
+			project:  decoded,
+			cloneURL: parsed.String(),
+		}, nil
+	}
 	return repositoryLocation{
 		provider: providerGitLab,
 		project:  decoded,
 		apiBase:  parsed.Scheme + "://" + parsed.Host + "/api/v4",
 		cloneURL: parsed.Scheme + "://" + parsed.Host + "/" + decoded + ".git",
 	}, nil
+}
+
+// ParseRepositoryLink splits a routing Git link into the clone URL and the
+// pinned ref. The ref comes from an optional `#ref` fragment, so
+// https://git.example.org/course/lab.git#main pins branch main while a link
+// without a fragment leaves the branch to the caller.
+func ParseRepositoryLink(raw string) (repository, ref string) {
+	trimmed := strings.TrimSpace(raw)
+	if trimmed == "" {
+		return "", ""
+	}
+	if index := strings.Index(trimmed, "#"); index >= 0 {
+		return strings.TrimSpace(trimmed[:index]), strings.TrimSpace(trimmed[index+1:])
+	}
+	return trimmed, ""
 }
 
 func parseGitLabProjectURL(raw string) (project, apiBase string, err error) {
@@ -471,13 +569,24 @@ func escapeRepositoryPath(value string) string {
 	return strings.Join(parts, "/")
 }
 
-func cleanRepositoryPath(value string) (string, error) {
-	if strings.TrimSpace(value) == "" {
-		return "", fmt.Errorf("labs_path is required")
+func repositoryRootLabel(labsPath string) string {
+	if strings.TrimSpace(labsPath) == "" {
+		return "repository root"
 	}
-	cleaned := strings.Trim(path.Clean("/"+value), "/")
-	if cleaned == "" || cleaned == "." || strings.Contains(value, "\\") {
+	return labsPath
+}
+
+// cleanRepositoryPath normalizes labs_path. An empty result means the
+// repository root, which is the default when a routing does not pin a
+// subdirectory.
+func cleanRepositoryPath(value string) (string, error) {
+	trimmed := strings.TrimSpace(value)
+	if strings.Contains(trimmed, "\\") {
 		return "", fmt.Errorf("invalid labs_path")
+	}
+	cleaned := strings.Trim(path.Clean("/"+trimmed), "/")
+	if cleaned == "." {
+		return "", nil
 	}
 	return cleaned, nil
 }

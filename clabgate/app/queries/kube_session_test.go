@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/rs/zerolog"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -15,12 +17,12 @@ import (
 
 func TestSessionNamespace(t *testing.T) {
 	tests := map[string]string{
-		"UUID":      "lab-550e8400-e29b-41d4-a716-446655440000",
+		"UUID":      "lab-00000000-0000-0000-0000-000000000000",
 		"mixedCase": "lab-sessionone",
 	}
 	for name, expected := range tests {
 		t.Run(name, func(t *testing.T) {
-			input := "550e8400-e29b-41d4-a716-446655440000"
+			input := "00000000-0000-0000-0000-000000000000"
 			if name == "mixedCase" {
 				input = "SessionOne"
 			}
@@ -63,11 +65,10 @@ spec:
         nodes: {}
 `
 	params := EnsureSessionParams{
-		AttemptID:       "550e8400-e29b-41d4-a716-446655440000",
+		AttemptID:       "00000000-0000-0000-0000-000000000000",
 		OwnerID:         "42",
 		Username:        "student",
 		Title:           "Lab",
-		LabPath:         "modules/lab/notebook.ipynb",
 		TopologyYAML:    manifest,
 		JupyterImage:    "example.test/jupyter:latest",
 		StorageSize:     "1Gi",
@@ -110,7 +111,7 @@ spec:
 		"start-notebook.py",
 		"--ServerApp.base_url=/clabgate/workspace/" + params.AttemptID,
 		"--ServerApp.allow_remote_access=True",
-		"--IdentityProvider.token=",
+		"--ServerApp.identity_provider_class=cms_labs_jupyter.identity.ProxyIdentityProvider",
 	}
 	if strings.Join(container.Args, "\x00") != strings.Join(wantArgs, "\x00") {
 		t.Fatalf("Jupyter args = %q, want %q", container.Args, wantArgs)
@@ -153,18 +154,100 @@ metadata:
 func TestBuildWorkspaceURL(t *testing.T) {
 	got := buildWorkspaceURL(
 		"/clabgate/workspace",
-		"550e8400-e29b-41d4-a716-446655440000",
-		"https://git.example.test/tasks",
+		"00000000-0000-0000-0000-000000000000",
+		"https://git.example.test/group/cms-labs-simple-task.git",
 		"main",
-		"module/Lab.ipynb",
 	)
 	for _, expectedPart := range []string{
-		"/clabgate/workspace/550e8400-e29b-41d4-a716-446655440000/git-pull?",
-		"repo=https%3A%2F%2Fgit.example.test%2Ftasks",
-		"urlpath=lab%2Ftree%2Fmodule%2FLab.ipynb",
+		"/clabgate/workspace/00000000-0000-0000-0000-000000000000/git-pull?",
+		"branch=main",
+		"repo=https%3A%2F%2Fgit.example.test%2Fgroup%2Fcms-labs-simple-task.git",
+		"targetpath=task",
 	} {
 		if !strings.Contains(got, expectedPart) {
 			t.Fatalf("workspace URL %q does not contain %q", got, expectedPart)
 		}
+	}
+	// No urlpath may pin a directory that does not exist inside the clone, and
+	// the only directory in the URL is the fixed task directory.
+	if strings.Contains(got, "urlpath") || strings.Contains(got, "tree%2F") {
+		t.Fatalf("workspace URL pins a directory inside the clone: %q", got)
+	}
+}
+
+func TestBuildWorkspaceURLFallsBackToLabWithoutRepository(t *testing.T) {
+	for _, tc := range []struct{ repository, ref string }{
+		{"", "main"},
+		{"https://git.example.test/group/tasks.git", ""},
+		{"   ", "   "},
+	} {
+		got := buildWorkspaceURL("/clabgate/workspace", "attempt", tc.repository, tc.ref)
+		if got != "/clabgate/workspace/attempt/lab" {
+			t.Fatalf("buildWorkspaceURL(%q, %q) = %q", tc.repository, tc.ref, got)
+		}
+	}
+}
+
+func TestReadySessionUsesRepositoryBranchForNBGitPuller(t *testing.T) {
+	replicas := int32(1)
+	client := kubernetesfake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+			Name: "lab-00000000-0000-0000-0000-000000000000",
+			Labels: map[string]string{
+				SessionManagedByLabel: SessionManagedByValue,
+				SessionIDLabel:        "00000000-0000-0000-0000-000000000000",
+				SessionOwnerLabel:     "42",
+			},
+			Annotations: map[string]string{
+				SessionAttemptAnnotation:      "00000000-0000-0000-0000-000000000000",
+				SessionTaskRepoAnnotation:     "https://github.com/maintainer64/cms-labs-simple-task",
+				SessionTaskRefAnnotation:      "main",
+				SessionTaskRevisionAnnotation: "d3136b13c7ae361eda4eaf16efd93d666b9bff0a",
+				SessionTopologyAnnotation:     "false",
+			},
+		}},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: workspaceName, Namespace: "lab-00000000-0000-0000-0000-000000000000"},
+			Spec:       appsv1.DeploymentSpec{Replicas: &replicas},
+			Status:     appsv1.DeploymentStatus{Replicas: 1, ReadyReplicas: 1},
+		},
+	)
+	logger := zerolog.Nop()
+	admin := NewKubernetesAdminWithClients(client, nil, nil, &logger)
+
+	record, err := admin.GetSession(
+		context.Background(),
+		"00000000-0000-0000-0000-000000000000",
+		"/clabgate/workspace",
+	)
+	if err != nil {
+		t.Fatalf("GetSession returned error: %v", err)
+	}
+	if !strings.Contains(record.WorkspaceURL, "branch=main") {
+		t.Fatalf("workspace URL does not use repository branch: %q", record.WorkspaceURL)
+	}
+	if strings.Contains(record.WorkspaceURL, "d3136b13c7ae361eda4eaf16efd93d666b9bff0a") {
+		t.Fatalf("workspace URL incorrectly uses commit SHA as nbgitpuller branch: %q", record.WorkspaceURL)
+	}
+}
+
+func TestCheckerResultStatusUsesScoreAndTasks(t *testing.T) {
+	passed := &CheckerRun{
+		MaxScore: 2, CurrentScore: 2,
+		Tasks: []CheckerTaskResult{{Title: "one", Complete: true}, {Title: "two", Complete: true}},
+	}
+	if got := checkerResultStatus(passed, true); got != "passed" {
+		t.Fatalf("checkerResultStatus() = %q, want passed", got)
+	}
+
+	partial := &CheckerRun{
+		MaxScore: 2, CurrentScore: 1,
+		Tasks: []CheckerTaskResult{{Title: "one", Complete: true}, {Title: "two", Complete: false}},
+	}
+	if got := checkerResultStatus(partial, true); got != "failed" {
+		t.Fatalf("checkerResultStatus() = %q, want failed", got)
+	}
+	if got := checkerResultStatus(passed, false); got != "failed" {
+		t.Fatalf("failed Job status = %q, want failed", got)
 	}
 }

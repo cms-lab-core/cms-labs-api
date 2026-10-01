@@ -37,7 +37,7 @@ func TestLabCatalogBundleUsesGitLabAPIAndStableOrder(t *testing.T) {
 			})
 		case strings.Contains(r.URL.Path, "/repository/files/"):
 			file, _ := url.PathUnescape(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path[strings.Index(r.URL.Path, "/repository/files/"):], "/repository/files/"), "/raw"))
-			body = []byte("kind: ConfigMap\nmetadata:\n  name: " + strings.TrimSuffix(file[strings.LastIndex(file, "/")+1:], ".yaml"))
+			body = []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: " + strings.TrimSuffix(file[strings.LastIndex(file, "/")+1:], ".yaml"))
 		default:
 			status = http.StatusNotFound
 		}
@@ -91,7 +91,7 @@ func TestLabCatalogBundleUsesGitHubAPIAndStableOrder(t *testing.T) {
 				t.Fatalf("unexpected contents request headers or query")
 			}
 			contentType = "application/yaml"
-			body = []byte("kind: ConfigMap\nmetadata:\n  name: " + pathBaseWithoutYAML(r.URL.Path))
+			body = []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: " + pathBaseWithoutYAML(r.URL.Path))
 		default:
 			status = http.StatusNotFound
 		}
@@ -116,6 +116,16 @@ func TestLabCatalogBundleUsesGitHubAPIAndStableOrder(t *testing.T) {
 	}
 }
 
+func TestParseRepositoryURLAcceptsGenericDotGitURL(t *testing.T) {
+	repository, err := parseRepositoryURL("https://git.example.edu/course/custom-task.git")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if repository.provider != providerGit || repository.cloneURL != "https://git.example.edu/course/custom-task.git" {
+		t.Fatalf("unexpected repository: %#v", repository)
+	}
+}
+
 func TestLabCatalogBundleUsesGitForPublicGitHubAndPinsRevision(t *testing.T) {
 	repositoryDir := t.TempDir()
 	runTestGit(t, repositoryDir, "init", "--initial-branch=main")
@@ -126,10 +136,10 @@ func TestLabCatalogBundleUsesGitForPublicGitHubAndPinsRevision(t *testing.T) {
 	if err := os.MkdirAll(labDirectory, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(repositoryDir, "task", "z.yml"), []byte("kind: ConfigMap\nmetadata:\n  name: z\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(repositoryDir, "task", "z.yml"), []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: z\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(labDirectory, "a.yaml"), []byte("kind: ConfigMap\nmetadata:\n  name: a\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(labDirectory, "a.yaml"), []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: a\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(repositoryDir, "task", "README.md"), []byte("ignored"), 0o600); err != nil {
@@ -155,7 +165,7 @@ func TestLabCatalogBundleUsesGitForPublicGitHubAndPinsRevision(t *testing.T) {
 		t.Fatalf("manifests are not stable-sorted: %s", bundle.Manifest)
 	}
 
-	if err := os.WriteFile(filepath.Join(repositoryDir, "task", "z.yml"), []byte("kind: ConfigMap\nmetadata:\n  name: changed\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(repositoryDir, "task", "z.yml"), []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: changed\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	runTestGit(t, repositoryDir, "add", ".")
@@ -195,13 +205,73 @@ func TestLabCatalogRejectsInvalidInput(t *testing.T) {
 	if _, _, err := parseGitLabProjectURL("gitlab.com/project"); err == nil {
 		t.Fatal("expected full project URL validation error")
 	}
-	if _, err := cleanRepositoryPath(""); err == nil {
-		t.Fatal("expected empty labs_path validation error")
+	if root, err := cleanRepositoryPath(""); err != nil || root != "" {
+		t.Fatalf("expected empty labs_path to resolve to the repository root, got %q and %v", root, err)
 	}
 	if _, err := cleanRepositoryPath(`course\\lab`); err == nil {
 		t.Fatal("expected backslash validation error")
 	}
 	if _, err := parseRepositoryURL("https://github.com/owner/group/project"); err == nil {
 		t.Fatal("expected GitHub owner/repository validation error")
+	}
+}
+
+func TestLabCatalogBundleUsesGitLabRepositoryRootWithoutPath(t *testing.T) {
+	const revision = "0123456789abcdef"
+	client := resty.New().SetTransport(roundTripFunc(func(r *http.Request) (*http.Response, error) {
+		if _, present := r.URL.Query()["path"]; present {
+			t.Fatalf("repository root must not be constrained by path: %s", r.URL.RawQuery)
+		}
+		body := []byte("[]")
+		if strings.Contains(r.URL.Path, "/repository/commits/main") {
+			body, _ = json.Marshal(map[string]string{"id": revision})
+		}
+		header := make(http.Header)
+		header.Set("Content-Type", "application/json")
+		return &http.Response{StatusCode: http.StatusOK, Header: header, Body: io.NopCloser(strings.NewReader(string(body))), Request: r}, nil
+	}))
+
+	catalog := NewLabCatalog("https://gitlab.test/group/task-project", "main", "private-token", client)
+	if _, err := catalog.Bundle(context.Background(), ""); err == nil {
+		t.Fatal("expected an empty repository tree to be reported as having no manifests")
+	}
+}
+
+func TestFilterTopologyDocumentsKeepsOnlyLabObjects(t *testing.T) {
+	documents := []string{
+		"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: backend\n",
+		"name: CI\non:\n  push:\n    branches: [main]\n",
+		"apiVersion: c9s.run/v1alpha1\nkind: Topology\nmetadata:\n  name: task\n",
+		"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: seed\n",
+	}
+	kept := filterTopologyDocuments(documents)
+	if len(kept) != 2 {
+		t.Fatalf("expected 2 lab manifests, got %d: %#v", len(kept), kept)
+	}
+	joined := strings.Join(kept, "\n")
+	if strings.Contains(joined, "Deployment") || strings.Contains(joined, "push") {
+		t.Fatalf("foreign objects leaked into the manifest: %s", joined)
+	}
+	if !strings.Contains(kept[0], "kind: Topology") || !strings.Contains(kept[1], "kind: ConfigMap") {
+		t.Fatalf("unexpected manifests: %#v", kept)
+	}
+}
+
+func TestFilterTopologyDocumentsSplitsMixedFile(t *testing.T) {
+	kept := filterTopologyDocuments([]string{
+		"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: backend\n---\n" +
+			"apiVersion: c9s.run/v1alpha1\nkind: Topology\nmetadata:\n  name: task\n",
+	})
+	if len(kept) != 1 {
+		t.Fatalf("expected only the Topology document, got %#v", kept)
+	}
+	if strings.Contains(kept[0], "Deployment") {
+		t.Fatalf("Deployment leaked into the manifest: %s", kept[0])
+	}
+}
+
+func TestFilterTopologyDocumentsDropsNonKubernetesYAML(t *testing.T) {
+	if kept := filterTopologyDocuments([]string{"just: [a, b]\n"}); len(kept) != 0 {
+		t.Fatalf("expected no manifests, got %#v", kept)
 	}
 }

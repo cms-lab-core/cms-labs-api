@@ -1,14 +1,18 @@
 # clabgate: Kubernetes-сессии лабораторий без JupyterHub
 
-`clabgate` можно превратить в самостоятельный execution plane для сетевых лабораторий. Рекомендуемая граница ответственности:
+`clabgate` можно превратить в самостоятельный execution plane для сетевых лабораторий. Рекомендуемая граница
+ответственности:
 
 - `cms-labs backend` остаётся владельцем LTI, пользователей, попыток и синхронизации оценок с Moodle;
-- `clabgate` становится владельцем жизненного цикла среды: namespace, лимиты, хранилище, топология, workspace, маршрут, readiness и удаление;
+- `clabgate` становится владельцем жизненного цикла среды: namespace, лимиты, хранилище, топология, workspace, маршрут,
+  readiness и удаление;
 - JupyterHub и KubeSpawner удаляются из контура;
 - JupyterLab остаётся опциональным runtime обычного Kubernetes workload, наравне с web-IDE или режимом без workspace;
-- материалы лаборатории становятся декларативным и версионируемым контрактом в Git, а не набором соглашений, зашитых в spawner.
+- материалы лаборатории становятся декларативным и версионируемым контрактом в Git, а не набором соглашений, зашитых в
+  spawner.
 
-Это не требует немедленного форка Clabernetes или написания нового UI. Сначала достаточно расширить существующий Go-сервис API и добавить reconciler. Мультикластерность лучше вводить после успешного single-cluster cutover.
+Это не требует немедленного форка Clabernetes или написания нового UI. Сначала достаточно расширить существующий
+Go-сервис API и добавить reconciler. Мультикластерность лучше вводить после успешного single-cluster cutover.
 
 API Docs: [https://cms-lab.gubanov.site/clabgate/api/docs](https://cms-lab.gubanov.site/clabgate/api/docs)
 
@@ -17,14 +21,16 @@ Jupyter, workspace auth и checker: [k8s/local-kind/README.md](../k8s/local-kind
 
 ## Реализованный первый вертикальный срез
 
-В этой ветке `clabgate` уже не ограничен чтением готовой топологии. Реализован переходный single-cluster runtime, в котором Kubernetes API является источником истины для живых сессий, а существующий общий frontend монорепозитория — единственной пользовательской web-мордой.
+В этой ветке `clabgate` уже не ограничен чтением готовой топологии. Реализован переходный single-cluster runtime, в
+котором Kubernetes API является источником истины для живых сессий, а существующий общий frontend монорепозитория —
+единственной пользовательской web-мордой.
 
 ```mermaid
 flowchart LR
     Moodle[Moodle / LTI] --> CMS[CMS Core]
     CMS -->|redirect /session/attempt-uuid| Front[Общий React frontend]
-    Front -->|CMS JWT + session.ensure/get/open/check/stop| Gate[clabgate]
-    Gate -->|validate attempt| CMS
+    Front -->|CMS Bearer token + session.ensure/get/open/check/stop| Gate[clabgate]
+    Gate -->|userinfo + validate attempt| CMS
     Gate -->|GitLab/GitHub API: list YAML + pinned commit| Git[Task Git repository]
     Gate -->|Namespace + ConfigMap + Topology + PVC + Deployment + Service + Job| K8s[Kubernetes API]
     K8s --> C9s[Clabernetes controller]
@@ -39,35 +45,50 @@ flowchart LR
 
 Путь запуска теперь такой:
 
-1. CMS создаёт attempt как раньше. Для server с типом `k8s` он возвращает `/session/<attempt UUID>` вместо URL JupyterHub SSO.
+1. CMS создаёт attempt как раньше. Для server с типом `k8s` он возвращает `/session/<attempt UUID>` вместо URL
+   JupyterHub SSO.
 2. Страница `nextui-dashboard/app/(app)/session/page.tsx` вызывает идемпотентный `session.ensure`.
-3. `clabgate` проверяет CMS JWT и принадлежность активной попытки текущему `sub`.
+3. `clabgate` передаёт Bearer token в CMS `/api/v1/sso/userinfo`, получает проверенный `sub` и проверяет
+   принадлежность ему активной попытки.
 4. Создаётся namespace `lab-<attempt UUID>` с labels/annotations сессии.
-5. `CMS_TASK_URL` разбирается как полный URL GitLab- или GitHub-проекта. Через API провайдера рекурсивно загружаются YAML из каталога `labs_path`, а точный commit SHA фиксируется в namespace. Разрешены только `v1/ConfigMap` и один `clabernetes Topology`; другие GVK отклоняются.
-6. В том же namespace создаются PVC, standalone JupyterLab Deployment и фиксированный Service `jupyter`. Jupyter — приложение сессии, а не JupyterHub single-user server.
-7. UI опрашивает `session.get`, показывает readiness topology/workspace и вызывает `session.open`. Короткий подписанный grant обменивается на scoped `Secure`/`HttpOnly` cookie; nginx делает `auth_request` перед каждым HTTP/WebSocket запросом к Jupyter.
-8. Фоновый reconciler под leader election сопоставляет attempts с namespace по immutable UUID. `pending -> active` выполняется только когда готовы Jupyter и Topology; `terminating` удаляется и подтверждается как `completed`. Старый JupyterHub idle CronJob для этого потока не нужен.
+5. `CMS_TASK_URL` разбирается как полный URL GitLab- или GitHub-проекта. Через API провайдера рекурсивно загружаются
+   YAML из каталога `labs_path`, а точный commit SHA фиксируется в namespace. Разрешены только `v1/ConfigMap` и один
+   `clabernetes Topology`; другие GVK отклоняются.
+6. В том же namespace создаются PVC, standalone JupyterLab Deployment и фиксированный Service `jupyter`. Jupyter —
+   приложение сессии, а не JupyterHub single-user server.
+7. UI опрашивает `session.get`, показывает readiness topology/workspace и вызывает `session.open`. Короткий подписанный
+   grant обменивается на scoped `Secure`/`HttpOnly` cookie; nginx делает `auth_request` перед каждым HTTP/WebSocket
+   запросом к Jupyter.
+8. Фоновый reconciler под leader election сопоставляет attempts с namespace по immutable UUID. `pending -> active`
+   выполняется только когда готовы Jupyter и Topology; `terminating` удаляется и подтверждается как `completed`. Старый
+   JupyterHub idle CronJob для этого потока не нужен.
 
-Jupyter находится в namespace топологии, но не является узлом containerlab: так он не попадает под lifecycle сетевого node Deployment и обращается к узлам по Kubernetes Services. Это более устойчивое разделение приложения и эмулируемой сети.
+Jupyter находится в namespace топологии, но не является узлом containerlab: так он не попадает под lifecycle сетевого
+node Deployment и обращается к узлам по Kubernetes Services. Это более устойчивое разделение приложения и эмулируемой
+сети.
 
 ### JSON-RPC контракт
 
-| Метод | Назначение |
-|---|---|
-| `session.ensure {attempt_id}` | Проверить attempt в CMS и идемпотентно создать desired resources |
-| `session.get {session_id}` | Получить состояние, вычисленное из Namespace/Deployment/Topology/Job |
-| `session.list {}` | Получить свои сессии; admin/instructor видит все |
-| `session.check {session_id}` | Запустить одну checker Job в namespace сессии |
-| `session.open {session_id}` | Проверить ownership/роль и выдать короткий URL обмена на workspace cookie |
-| `session.stop {session_id}` | Удалить namespace; garbage collector удалит namespaced resources |
-| `topology.get {session_id}` | Получить topology для нового immutable session ID |
-| `node.action {session_id, actions}` | Выполнить совместимые действия над узлами с ownership check |
+| Метод                               | Назначение                                                                                    |
+|-------------------------------------|-----------------------------------------------------------------------------------------------|
+| `session.ensure {attempt_id}`       | Проверить attempt в CMS и идемпотентно создать desired resources                              |
+| `session.get {session_id}`          | Получить состояние Namespace/Deployment/Topology и последний структурированный checker result |
+| `session.list {}`                   | Получить свои сессии; admin/instructor видит все                                              |
+| `session.check {session_id}`        | Запустить одну checker Job в namespace сессии                                                 |
+| `session.open {session_id}`         | Проверить ownership/роль и выдать короткий URL обмена на workspace cookie                     |
+| `session.stop {session_id}`         | Удалить namespace; garbage collector удалит namespaced resources                              |
+| `topology.get {session_id}`         | Получить topology для нового immutable session ID                                             |
+| `node.action {session_id, actions}` | Выполнить совместимые действия над узлами с ownership check                                   |
 
-Legacy-параметры `username + attempt_number` и прямой nginx-маршрут удалены; topology и node actions работают только через immutable `session_id`.
+Legacy-параметры `username + attempt_number` и прямой nginx-маршрут удалены; topology и node actions работают только
+через immutable `session_id`.
 
 ### Kubernetes-контракт сессии
 
-Namespace имеет labels `app.kubernetes.io/managed-by=clabgate`, `labs.cmslabs.ru/session-id` и `labs.cmslabs.ru/owner-id`. Остальная информация (`attempt-id`, username, `lab-path`, `test-path`, title, runtime, source revision, session phase и ready-at) хранится в annotations. Поэтому список сессий восстанавливается после рестарта clabgate простым Kubernetes list и не требует собственной БД или новой CRD.
+Namespace имеет labels `app.kubernetes.io/managed-by=clabgate`, `labs.cmslabs.ru/session-id` и
+`labs.cmslabs.ru/owner-id`. Остальная информация (`attempt-id`, username, `lab-path`, `test-path`, title, runtime,
+source revision, session phase и ready-at) хранится в annotations. Поэтому список сессий восстанавливается после
+рестарта clabgate простым Kubernetes list и не требует собственной БД или новой CRD.
 
 В namespace создаются:
 
@@ -76,11 +97,13 @@ Namespace имеет labels `app.kubernetes.io/managed-by=clabgate`, `labs.cmsla
 - `Deployment/jupyter` и `Service/jupyter:8888`;
 - `Job/checker-*` только после явного `session.check`.
 
-`session.ensure` заканчивается после принятия desired resources API-сервером, а не ждёт запуска образов. Состояния `pending`, `provisioning`, `ready`, `degraded`, `failed`, `stopping` вычисляются из фактических объектов Kubernetes.
+`session.ensure` заканчивается после принятия desired resources API-сервером, а не ждёт запуска образов. Состояния
+`pending`, `provisioning`, `ready`, `degraded`, `failed`, `stopping` вычисляются из фактических объектов Kubernetes.
 
 ### Контракт checker image
 
-Образ из `CHECKER_IMAGE` запускается без Kubernetes credentials и без монтирования RWO Jupyter PVC, в namespace лаборатории, с переменными:
+Образ из `CHECKER_IMAGE` запускается без Kubernetes credentials и без монтирования RWO Jupyter PVC, в namespace
+лаборатории, с переменными:
 
 ```text
 SESSION_ID
@@ -90,7 +113,8 @@ LAB_PATH
 TEST_PATH
 ```
 
-Проверяющая программа должна завершиться с кодом `0` и записать в `/dev/termination-log` один JSON размером до Kubernetes termination-message limit:
+Проверяющая программа должна завершиться с кодом `0` и записать в `/dev/termination-log` один JSON размером до
+Kubernetes termination-message limit:
 
 ```json
 {
@@ -103,7 +127,11 @@ TEST_PATH
       "title": "Проверка SSH",
       "description": "Маршрутизатор принимает SSH-подключения",
       "logs": [
-        {"node": "r1", "namespace": "lab-example", "message": "Соединение установлено"}
+        {
+          "node": "r1",
+          "namespace": "lab-example",
+          "message": "Соединение установлено"
+        }
       ],
       "complete": true
     }
@@ -111,43 +139,60 @@ TEST_PATH
 }
 ```
 
-`tasks` опционален, поэтому старые checker images остаются совместимыми. Новые checker images и отдельные реализации лабораторных находятся в репозитории [`github.com/maintainer64/cms-labs-checker`](https://github.com/maintainer64/cms-labs-checker). `TEST_PATH` выбирает зарегистрированный пакет проверки, а при пустом значении используется basename `LAB_PATH`.
+`tasks` опционален, поэтому старые checker images остаются совместимыми. Новые checker images и отдельные реализации
+лабораторных находятся в репозитории [
+`github.com/maintainer64/cms-labs-checker`](https://github.com/maintainer64/cms-labs-checker). `TEST_PATH` выбирает
+зарегистрированный пакет проверки, а при пустом значении используется basename `LAB_PATH`.
 
-Reconciler валидирует диапазон оценки, добавляет стабильный `check_id` и последние 64 КиБ сырых логов Pod, передаёт результат через существующий `lti_attempt.update_external`, а CMS синхронизирует его с Moodle через AGS. CMS идемпотентно принимает повтор того же `check_id`; успешная доставка также помечается annotation на Job. Нулевая оценка допустима и отправляется в LMS.
+Последний Job остаётся доступен через `session.get`: UI получает его состояние, баллы, `report`, структурированные
+`tasks`, termination message и ограниченные 64 КиБ pod logs. Поэтому панель проверок не синтезирует результаты на
+клиенте и восстанавливается после перезагрузки страницы.
+
+Reconciler валидирует диапазон оценки, добавляет стабильный `check_id` и последние 64 КиБ сырых логов Pod, передаёт
+результат через существующий `lti_attempt.update_external`, а CMS синхронизирует его с Moodle через AGS. CMS
+идемпотентно принимает повтор того же `check_id`; успешная доставка также помечается annotation на Job. Нулевая оценка
+допустима и отправляется в LMS.
 
 ### Конфигурация
 
-| Переменная | Назначение / default |
-|---|---|
-| `JWT_SECRET_KEY_PUBLIC` | PEM RSA public key CMS; обязателен для проверки JWT |
-| `JWT_ISSUER`, `JWT_AUDIENCE` | Дополнительная строгая проверка issuer/audience |
-| `CMS_URL` | URL CMS Core |
-| `CMS_LOGIN`, `CMS_PASSWORD` | service client, соответствующий k8s server в CMS |
-| `CMS_TIMEOUT_SECONDS` | timeout CMS API, `30` |
-| `CMS_TASK_URL` | полный URL GitLab- или GitHub-проекта, например `https://github.com/org/tasks` |
-| `CMS_TASK_BRANCH` | Git ref каталога, `master`; при запуске разрешается в commit SHA |
-| `TASK_REPOSITORY_TOKEN` | optional token для private GitLab/GitHub repository |
-| `GITLAB_TOKEN` | legacy fallback для `TASK_REPOSITORY_TOKEN` на время миграции |
-| `JUPYTER_IMAGE` | standalone notebook image со `start-notebook.py`; production default — `ghcr.io/maintainer64/cms-labs-jupyter:1.0.0` |
-| `JUPYTER_STORAGE_SIZE` | размер PVC, `1Gi` |
-| `WORKSPACE_PROXY_PREFIX` | URL prefix Jupyter, `/clabgate/workspace` |
-| `WORKSPACE_AUTH_SECRET` | общий для replicas HMAC secret, минимум 32 байта; обязателен для `session.open` |
-| `WORKSPACE_GRANT_TTL_SECONDS` | TTL одноцелевого grant, `60` |
-| `WORKSPACE_COOKIE_TTL_SECONDS` | TTL scoped HttpOnly cookie, `3600` |
-| `WORKSPACE_COOKIE_SECURE` | передавать workspace cookie только по HTTPS, `true`; `false` допустимо только для loopback demo |
-| `SESSION_RECONCILE_INTERVAL_SECONDS` | период сверки Kubernetes/CMS, `30` |
-| `CHECKER_IMAGE` | образ checker; без него `session.check` явно вернёт ошибку |
-| `CHECKER_TIMEOUT_SECONDS` | active deadline checker Job, `600` |
+| Переменная                               | Назначение / default                                                                                                 |
+|------------------------------------------|----------------------------------------------------------------------------------------------------------------------|
+| `CMS_URL`                                | URL CMS Core; Clabgate проверяет пользовательский Bearer token через `/api/v1/sso/userinfo`                          |
+| `CMS_LOGIN`, `CMS_PASSWORD`              | service client, соответствующий k8s server в CMS                                                                     |
+| `CMS_TIMEOUT_SECONDS`                    | timeout CMS API, `30`                                                                                                |
+| `CMS_TASK_URL`                           | полный URL GitLab- или GitHub-проекта, например `https://github.com/org/tasks`                                       |
+| `CMS_TASK_BRANCH`                        | Git branch каталога, `main`; манифесты при запуске закрепляются на resolved commit SHA                               |
+| `TASK_REPOSITORY_TOKEN`                  | optional token для private GitLab/GitHub repository                                                                  |
+| `GITLAB_TOKEN`                           | legacy fallback для `TASK_REPOSITORY_TOKEN` на время миграции                                                        |
+| `JUPYTER_IMAGE`                          | standalone notebook image со `start-notebook.py`; production default — `ghcr.io/maintainer64/cms-labs-jupyter:1.0.0` |
+| `JUPYTER_STORAGE_SIZE`                   | размер PVC, `1Gi`                                                                                                    |
+| `WORKSPACE_PROXY_PREFIX`                 | URL prefix Jupyter, `/clabgate/workspace`                                                                            |
+| `WORKSPACE_AUTH_SECRET`                  | общий для replicas HMAC secret, минимум 32 байта; обязателен для `session.open`                                      |
+| `WORKSPACE_GRANT_TTL_SECONDS`            | TTL одноцелевого grant, `60`                                                                                         |
+| `WORKSPACE_COOKIE_TTL_SECONDS`           | TTL scoped HttpOnly cookie, `3600`                                                                                   |
+| `WORKSPACE_COOKIE_SECURE`                | передавать workspace cookie только по HTTPS, `true`; `false` допустимо только для loopback demo                      |
+| `SESSION_RECONCILE_INTERVAL_SECONDS`     | начальный период сверки Kubernetes/CMS, `30`                                                                         |
+| `SESSION_RECONCILE_MAX_INTERVAL_SECONDS` | максимальный idle/error backoff, `120`; при изменениях интервал сбрасывается к начальному                            |
+| `CHECKER_IMAGE`                          | образ checker; без него `session.check` явно вернёт ошибку                                                           |
+| `CHECKER_TIMEOUT_SECONDS`                | active deadline checker Job, `600`                                                                                   |
 
-ServiceAccount/RBAC в `k8s/values/_common/clabgate-values.yaml` расширен ровно на создаваемые namespaced ресурсы и Namespace. Для Topology namespace включён Pod Security `privileged`, поскольку сетевые node workloads Clabernetes требуют соответствующих возможностей.
+ServiceAccount/RBAC в `k8s/values/_common/clabgate-values.yaml` расширен ровно на создаваемые namespaced ресурсы и
+Namespace. Для Topology namespace включён Pod Security `privileged`, поскольку сетевые node workloads Clabernetes
+требуют соответствующих возможностей.
 
 ### Что ещё не завершено
 
-- Нет live-cluster smoke test: локального kubeconfig/кластера сейчас нет. Kubernetes orchestration покрыт fake-client тестом, включая multi-document manifest и повторный ensure.
-- Standalone Jupyter image проверяется собственным CI: запуск сервера, импорт библиотек всех текущих notebook и совместимость legacy SNMP API.
-- Загрузка notebook пока использует `nbgitpuller`, но и Kubernetes-манифесты, и notebook checkout закреплены по разрешённому commit SHA.
-- `topology.get` выдаёт ttyd только как короткоживущий grant: frontend обменивает его на scoped HttpOnly cookie и проксирует HTTP/WebSocket в namespace сессии.
-- Ещё нет ResourceQuota, LimitRange, NetworkPolicy, TTL/idle policy и informer cache. Две replicas reconciler координируются Kubernetes Lease.
+- Нет live-cluster smoke test: локального kubeconfig/кластера сейчас нет. Kubernetes orchestration покрыт fake-client
+  тестом, включая multi-document manifest и повторный ensure.
+- Standalone Jupyter image проверяется собственным CI: запуск сервера, импорт библиотек всех текущих notebook и
+  совместимость legacy SNMP API.
+- Загрузка notebook пока использует `nbgitpuller`: он синхронизирует имя ветки, так как commit SHA не
+  является допустимым `branch`. Kubernetes-манифесты и metadata сессии по-прежнему закреплены на resolved commit SHA;
+  полное immutable checkout нужно перенести в init container вместо `nbgitpuller`.
+- `topology.get` выдаёт ttyd только как короткоживущий grant: frontend обменивает его на scoped HttpOnly cookie и
+  проксирует HTTP/WebSocket в namespace сессии.
+- Ещё нет ResourceQuota, LimitRange, NetworkPolicy, TTL/idle policy и informer cache. Две replicas reconciler
+  координируются Kubernetes Lease.
 - `Topology` GVR соответствует актуальному API персонального Clabernetes: `c9s.run/v1alpha1`.
 
 Локальная проверка без кластера:
@@ -232,20 +277,21 @@ sequenceDiagram
     H-->>U: redirect в nbgitpuller / notebook
 ```
 
-Важная деталь: orchestration распределён между браузером, JupyterHub, CMS, CronJob и Kubernetes. Поэтому частичный сбой легко оставляет notebook без топологии, namespace без корректного статуса попытки или попытку без живой среды.
+Важная деталь: orchestration распределён между браузером, JupyterHub, CMS, CronJob и Kubernetes. Поэтому частичный сбой
+легко оставляет notebook без топологии, namespace без корректного статуса попытки или попытку без живой среды.
 
 ## Фактические зависимости
 
-| Компонент | От чего зависит | За что сейчас отвечает |
-|---|---|---|
-| CMS Core | MySQL, Moodle LTI, OIDC/SSO, routing data | Создаёт attempt, хранит `labs_path`, выбирает server, синхронизирует оценку |
-| JupyterHub | KubeSpawner, GenericOAuthenticator, CHP, MySQL, Vault, CMS JSON-RPC, Git provider, Kubernetes | Авторизация, namespace/PVC/pod, ожидание, загрузка topology, маршрутизация к notebook |
-| Browser waiting page | JupyterHub API и EventSource | Последовательно запускает server, ждёт его, затем запускает topology |
-| Idle CronJob | JupyterHub API, CMS JSON-RPC, Vault | Сопоставляет named servers с attempts и двигает lifecycle |
-| Clabernetes | Topology CRD, Kubernetes | Разворачивает сетевые узлы и сервисы |
-| clabgate | Непроверенный CMS JWT, Kubernetes API, соглашение об имени namespace | Читает topology/deployments/services и удаляет/перезапускает pod |
-| CMS frontend | clabgate, React Flow, nginx DNS proxy | Рисует topology и проксирует ttyd WebSocket |
-| Task collection | Git submodules, notebook image, custom IPython startup, topology template convention | Хранит учебные материалы и часть topology |
+| Компонент            | От чего зависит                                                                               | За что сейчас отвечает                                                                |
+|----------------------|-----------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------|
+| CMS Core             | MySQL, Moodle LTI, OIDC/SSO, routing data                                                     | Создаёт attempt, хранит `labs_path`, выбирает server, синхронизирует оценку           |
+| JupyterHub           | KubeSpawner, GenericOAuthenticator, CHP, MySQL, Vault, CMS JSON-RPC, Git provider, Kubernetes | Авторизация, namespace/PVC/pod, ожидание, загрузка topology, маршрутизация к notebook |
+| Browser waiting page | JupyterHub API и EventSource                                                                  | Последовательно запускает server, ждёт его, затем запускает topology                  |
+| Idle CronJob         | JupyterHub API, CMS JSON-RPC, Vault                                                           | Сопоставляет named servers с attempts и двигает lifecycle                             |
+| Clabernetes          | Topology CRD, Kubernetes                                                                      | Разворачивает сетевые узлы и сервисы                                                  |
+| clabgate             | Проверенная CMS identity, Kubernetes API, соглашение об имени namespace                       | Читает topology/deployments/services и удаляет/перезапускает pod                      |
+| CMS frontend         | clabgate, React Flow, nginx DNS proxy                                                         | Рисует topology и проксирует ttyd WebSocket                                           |
+| Task collection      | Git submodules, notebook image, custom IPython startup, topology template convention          | Хранит учебные материалы и часть topology                                             |
 
 ## Что уже умеет clabgate
 
@@ -272,7 +318,8 @@ sequenceDiagram
 - ошибка `executor.StreamWithContext` при restart игнорируется;
 - при нескольких replicas/pods выбирается последний элемент без проверки readiness;
 - `GetTopologyYAML` возвращает первый Topology в namespace, а не ресурс по имени/owner label;
-- список `ServiceInfo` всё ещё ориентирован на внешние адреса, тогда как ttyd обнаруживается отдельным namespace-local запросом;
+- список `ServiceInfo` всё ещё ориентирован на внешние адреса, тогда как ttyd обнаруживается отдельным namespace-local
+  запросом;
 - зависимости notebook почти не закреплены по версиям, поэтому образ невоспроизводим;
 - topology templates и notebooks не имеют машинно-проверяемого общего manifest.
 
@@ -280,19 +327,22 @@ sequenceDiagram
 
 В `cms_task_collection` сейчас четыре Git submodule с пятью `.ipynb` и тремя `topology.template.yaml`.
 
-| Модуль | Notebook | Topology | Особенности |
-|---|---:|---:|---|
-| `SDN_Lab_3_1` | 1 | нет | Python notebook без собственной topology |
-| `SDN_Lab_4` | 2 | да | `%postman`, `%%ssh`, RESTCONF, ConfigMap startup config |
-| `SDN_Lab_5_1` | 1 | да | Paramiko, pandas, SNMP, matplotlib, Cisco IOL |
-| `SDN_Lab_5_2` | 1 | да | ncclient, lxml/XML, pandas, Arista cEOS |
+| Модуль        | Notebook | Topology | Особенности                                             |
+|---------------|---------:|---------:|---------------------------------------------------------|
+| `SDN_Lab_3_1` |        1 |      нет | Python notebook без собственной topology                |
+| `SDN_Lab_4`   |        2 |       да | `%postman`, `%%ssh`, RESTCONF, ConfigMap startup config |
+| `SDN_Lab_5_1` |        1 |       да | Paramiko, pandas, SNMP, matplotlib, Cisco IOL           |
+| `SDN_Lab_5_2` |        1 |       да | ncclient, lxml/XML, pandas, Arista cEOS                 |
 
 Из этого следуют два ограничения:
 
-1. Полностью заменить JupyterLab на code-server/OpenVSCode без изменения материалов нельзя: IPython magic `%%ssh` и `%postman`, виджеты и выполнение notebook должны где-то сохраниться.
-2. Не каждой лаборатории нужна topology, поэтому runtime и topology должны быть независимыми optional-секциями определения лаборатории.
+1. Полностью заменить JupyterLab на code-server/OpenVSCode без изменения материалов нельзя: IPython magic `%%ssh` и
+   `%postman`, виджеты и выполнение notebook должны где-то сохраниться.
+2. Не каждой лаборатории нужна topology, поэтому runtime и topology должны быть независимыми optional-секциями
+   определения лаборатории.
 
-Рекомендуется сохранить Jupyter runtime для существующих notebook, а web-IDE вводить как новый профиль. После этого отдельные лабораторные можно постепенно переводить на Markdown/scripts/tests.
+Рекомендуется сохранить Jupyter runtime для существующих notebook, а web-IDE вводить как новый профиль. После этого
+отдельные лабораторные можно постепенно переводить на Markdown/scripts/tests.
 
 ## Целевая архитектура
 
@@ -344,7 +394,9 @@ CMS не должен знать имена pod, PVC, namespace или устр�
 - открывает Jupyter/web-IDE/terminal по URL готовой session;
 - не применяет Kubernetes manifests и не управляет последовательностью provisioning в браузере.
 
-Новый frontend и встраивание `containerlab-app` для запуска лабораторий не требуются. Из `clab-ui` при необходимости можно заимствовать отдельные идеи визуализации, не добавляя второй пользовательский интерфейс или второй lifecycle backend.
+Новый frontend и встраивание `containerlab-app` для запуска лабораторий не требуются. Из `clab-ui` при необходимости
+можно заимствовать отдельные идеи визуализации, не добавляя второй пользовательский интерфейс или второй lifecycle
+backend.
 
 #### clabgate
 
@@ -357,11 +409,13 @@ CMS не должен знать имена pod, PVC, namespace или устр�
 - удаляет среду по TTL или команде;
 - повторяет callback в CMS через outbox до подтверждения.
 
-`clabgate` должен уметь работать через generic API без Moodle. CMS-интеграция — adapter, а не часть Kubernetes-контроллера.
+`clabgate` должен уметь работать через generic API без Moodle. CMS-интеграция — adapter, а не часть
+Kubernetes-контроллера.
 
 ### Расширять clabgate или создавать новый сервис
 
-Рекомендуется сохранить имя, репозиторий, CI/Helm и совместимые read/action endpoints `clabgate`, но разделить процесс на два бинарных entrypoint:
+Рекомендуется сохранить имя, репозиторий, CI/Helm и совместимые read/action endpoints `clabgate`, но разделить процесс
+на два бинарных entrypoint:
 
 ```text
 clabgate/
@@ -375,7 +429,9 @@ clabgate/
 └── internal/auth              # OIDC/JWKS и service authentication
 ```
 
-На первом этапе API и controller могут поставляться одним image и двумя Deployments. Это сохраняет простоту монорепозитория, но падение HTTP handler не останавливает reconciliation. Создавать третий продукт или форкать Clabernetes не требуется. Если позже появятся worker clusters, тот же controller становится cluster agent.
+На первом этапе API и controller могут поставляться одним image и двумя Deployments. Это сохраняет простоту
+монорепозитория, но падение HTTP handler не останавливает reconciliation. Создавать третий продукт или форкать
+Clabernetes не требуется. Если позже появятся worker clusters, тот же controller становится cluster agent.
 
 #### Clabernetes
 
@@ -404,11 +460,11 @@ spec:
   runtime:
     type: jupyter # jupyter | webide | none
     image: harbor.k8s.cmslabs.ru/svc_jupyter/notebook@sha256:...
-    command: ["jupyter", "lab"]
+    command: [ "jupyter", "lab" ]
     entrypoint: Lab5_2.ipynb
     resources:
-      requests: {cpu: 500m, memory: 1Gi}
-      limits: {cpu: "2", memory: 4Gi}
+      requests: { cpu: 500m, memory: 1Gi }
+      limits: { cpu: "2", memory: 4Gi }
     storage:
       size: 1Gi
       retention: Delete
@@ -441,16 +497,17 @@ spec:
     name: sdn-lab-5-2
     revision: "git-commit-sha"
   expiresAt: "2026-09-12T15:00:00Z"
-  runtimeOverride: {}
+  runtimeOverride: { }
 status:
   phase: Ready
   cluster: prod-1
   namespace: lab-01j...
   url: https://01j....labs.example.org/
-  conditions: []
+  conditions: [ ]
 ```
 
-Для имён ресурсов используется непрозрачный session id. Username и email остаются labels/annotations только там, где это допустимо политикой персональных данных.
+Для имён ресурсов используется непрозрачный session id. Username и email остаются labels/annotations только там, где это
+допустимо политикой персональных данных.
 
 ## Применение произвольных manifest
 
@@ -463,10 +520,12 @@ status:
 3. Отклонить cluster-scoped resources, `Namespace`, RBAC, CRD, webhook, privileged host mounts и неизвестные GVK.
 4. Принудительно установить session namespace и ownership labels.
 5. Наложить platform defaults: quota, limits, security context, pull secrets, network policy.
-6. Применить ресурсы через client-go discovery + RESTMapper + dynamic client с server-side apply и отдельным field manager.
+6. Применить ресурсы через client-go discovery + RESTMapper + dynamic client с server-side apply и отдельным field
+   manager.
 7. Сохранить inventory применённых объектов, чтобы удаление и drift reconciliation были детерминированными.
 
-Это исправляет недостатки текущего `KubectlTopology`: поддерживаются обычные `apps/v1`, `batch/v1` и CRD, обновления идемпотентны, plural берётся из API discovery, а не угадывается.
+Это исправляет недостатки текущего `KubectlTopology`: поддерживаются обычные `apps/v1`, `batch/v1` и CRD, обновления
+идемпотентны, plural берётся из API discovery, а не угадывается.
 
 ## Namespace, ресурсы и размещение
 
@@ -482,7 +541,8 @@ status:
 - optional workspace Deployment/StatefulSet, Service и HTTPRoute;
 - owner labels/finalizer для очистки.
 
-Kubernetes scheduler должен выбирать node. `clabgate` выбирает cluster и задаёт policy (`nodeSelector`, affinity, tolerations, RuntimeClass), но не реализует собственный node scheduler.
+Kubernetes scheduler должен выбирать node. `clabgate` выбирает cluster и задаёт policy (`nodeSelector`, affinity,
+tolerations, RuntimeClass), но не реализует собственный node scheduler.
 
 ### Выбор cluster
 
@@ -494,7 +554,8 @@ Kubernetes scheduler должен выбирать node. `clabgate` выбира
 4. решение закрепляется за session и не меняется после provisioning;
 5. agent в выбранном cluster pull-моделью получает desired state либо watch-ит management API.
 
-Pull-agent предпочтительнее хранения cluster-admin kubeconfig всех clusters в центральном API. Полноценную мультикластерность не следует делать обязательным условием первого cutover.
+Pull-agent предпочтительнее хранения cluster-admin kubeconfig всех clusters в центральном API. Полноценную
+мультикластерность не следует делать обязательным условием первого cutover.
 
 ## Jupyter без JupyterHub
 
@@ -507,9 +568,11 @@ JupyterLab запускается обычным workload:
 5. Service и HTTPRoute публикуют workspace;
 6. lifecycle и удаление выполняет `LabSession` reconciler.
 
-`nbgitpuller` можно оставить как временную совместимость, но воспроизводимее клонировать pinned revision init container-ом. Изменения студента сохраняются в session PVC.
+`nbgitpuller` можно оставить как временную совместимость, но воспроизводимее клонировать pinned revision init
+container-ом. Изменения студента сохраняются в session PVC.
 
-Образ notebook нужно отделить от версии JupyterHub и закрепить Python packages lock-файлом. Особое внимание требуется совместимости custom `%postman`, `%%ssh`, `pysnmp` legacy API, `ncclient` и `lxml`.
+Образ notebook нужно отделить от версии JupyterHub и закрепить Python packages lock-файлом. Особое внимание требуется
+совместимости custom `%postman`, `%%ssh`, `pysnmp` legacy API, `ncclient` и `lxml`.
 
 ### Домен пользователя
 
@@ -519,14 +582,18 @@ JupyterLab запускается обычным workload:
 https://<user-slug>-<session-id>.labs.example.org/
 ```
 
-Если гарантирована ровно одна активная лаборатория, возможен `<user-slug>.labs.example.org`, но тогда повторный запуск и параллельные попытки конфликтуют. Для схемы нужны wildcard DNS, wildcard certificate и Gateway listener, разрешающий `HTTPRoute` из session namespaces.
+Если гарантирована ровно одна активная лаборатория, возможен `<user-slug>.labs.example.org`, но тогда повторный запуск и
+параллельные попытки конфликтуют. Для схемы нужны wildcard DNS, wildcard certificate и Gateway listener, разрешающий
+`HTTPRoute` из session namespaces.
 
 Без JupyterHub CHP исчезает, но остаются две неизбежные функции:
 
 - L7 routing от hostname к Service — это существующий Kubernetes Gateway/Ingress;
 - проверка доступа перед приложением — Jupyter token, auth sidecar или централизованная OIDC policy на gateway.
 
-Предпочтение: централизованная OIDC/ext-auth policy на Gateway. Если текущий Gateway не умеет её безопасно применять, временно использовать небольшой auth sidecar на workspace. Нельзя публиковать Jupyter/code-server/ttyd только по трудно угадываемому URL.
+Предпочтение: централизованная OIDC/ext-auth policy на Gateway. Если текущий Gateway не умеет её безопасно применять,
+временно использовать небольшой auth sidecar на workspace. Нельзя публиковать Jupyter/code-server/ttyd только по трудно
+угадываемому URL.
 
 ## Что делать с web UI Clabernetes
 
@@ -537,20 +604,27 @@ https://<user-slug>-<session-id>.labs.example.org/
 - визуализировать Topology, Deployment, Service и Connectivity;
 - редактировать YAML в Monaco Editor.
 
-Monaco — редакторное ядро, используемое VS Code, но это не полноценный VS Code workspace. В изученном коде нет notebook runtime, terminal/ttyd, LTI flow, OIDC tenant mapping или ограничения пользователя его session.
+Monaco — редакторное ядро, используемое VS Code, но это не полноценный VS Code workspace. В изученном коде нет notebook
+runtime, terminal/ttyd, LTI flow, OIDC tenant mapping или ограничения пользователя его session.
 
-Кроме того, UI работает server-side с Kubernetes service account Clabernetes manager, выводит все namespaces и предоставляет CRUD. Поэтому рекомендуемое применение:
+Кроме того, UI работает server-side с Kubernetes service account Clabernetes manager, выводит все namespaces и
+предоставляет CRUD. Поэтому рекомендуемое применение:
 
 - оставить его как admin/instructor UI;
 - поставить перед ним OIDC и разрешить только административные роли;
 - по возможности дать отдельный read-mostly service account, а не manager credentials;
 - не использовать его как student launch page без существенной доработки authorization и tenant filtering.
 
-Существующий общий frontend монорепозитория следует сохранить как единственный student UI. Из него нужно убрать orchestration запуска: frontend показывает состояние `LabSession`, получает progress через API/SSE, отображает topology и разрешённые действия, а после `Ready` открывает Jupyter/web-IDE. Визуализацию topology и ttyd не нужно переносить в отдельное приложение.
+Существующий общий frontend монорепозитория следует сохранить как единственный student UI. Из него нужно убрать
+orchestration запуска: frontend показывает состояние `LabSession`, получает progress через API/SSE, отображает topology
+и разрешённые действия, а после `Ready` открывает Jupyter/web-IDE. Визуализацию topology и ttyd не нужно переносить в
+отдельное приложение.
 
 ### Важное состояние upstream
 
-В актуальном upstream Clabernetes встроенный UI больше не является поддерживаемой частью проекта: удаление UI вошло в release `v0.7.0`. Поэтому `ui.enabled=true` нельзя считать возможностью нового upstream chart. `cms-labs-clabernetes` — явно версионируемый fork с ttyd/tmux-интеграцией; student UI при этом остаётся в CMS Labs frontend.
+В актуальном upstream Clabernetes встроенный UI больше не является поддерживаемой частью проекта: удаление UI вошло в
+release `v0.7.0`. Поэтому `ui.enabled=true` нельзя считать возможностью нового upstream chart. `cms-labs-clabernetes` —
+явно версионируемый fork с ttyd/tmux-интеграцией; student UI при этом остаётся в CMS Labs frontend.
 
 ### Что уже готово в локальном `c9s`
 
@@ -561,7 +635,8 @@ Monaco — редакторное ядро, используемое VS Code, н
 - для `master` ожидаемый адрес — `https://c9s.k8s.cmslabs.ru`, для pre-веток — `https://c9s.k8s-pre.cmslabs.ru`;
 - chart создаёт UI как Next.js Deployment и Service, а UI обращается к Kubernetes API из pod.
 
-Без внешнего Kubernetes локально его можно проверить в disposable `kind`-кластере. В текущем окружении установлен Docker client и Helm, но `kind` отсутствует; команды ниже не запускались:
+Без внешнего Kubernetes локально его можно проверить в disposable `kind`-кластере. В текущем окружении установлен Docker
+client и Helm, но `kind` отсутствует; команды ниже не запускались:
 
 ```bash
 brew install kind
@@ -577,31 +652,45 @@ helm upgrade --install clabernetes ./charts/clabernetes \
 kubectl -n clabernetes port-forward service/clabernetes-ui 3000:80
 ```
 
-После этого UI доступен на `http://127.0.0.1:3000`. Сам UI и Kubernetes CRUD можно проверить на macOS, но полноценный запуск сетевых образов в `kind` поверх Docker Desktop зависит от privileged mode, nested container runtime и доступности vendor images. Это не следует считать production-проверкой Clabernetes data plane.
+После этого UI доступен на `http://127.0.0.1:3000`. Сам UI и Kubernetes CRUD можно проверить на macOS, но полноценный
+запуск сетевых образов в `kind` поверх Docker Desktop зависит от privileged mode, nested container runtime и доступности
+vendor images. Это не следует считать production-проверкой Clabernetes data plane.
 
 ### K9s — не web UI
 
-K9s предоставляет terminal UI и работает с правами текущего kubeconfig; собственного HTTP-сервера или browser mode у него нет. Это прямо указано в [официальном README K9s](https://github.com/derailed/k9s). Его технически можно показать в браузере через `ttyd`/`wetty`, но тогда наружу публикуется административный терминал с Kubernetes credentials. Для student-facing интерфейса это неподходящая модель; максимум — закрытый OIDC/VPN admin-инструмент с отдельным read-only ServiceAccount.
+K9s предоставляет terminal UI и работает с правами текущего kubeconfig; собственного HTTP-сервера или browser mode у
+него нет. Это прямо указано в [официальном README K9s](https://github.com/derailed/k9s). Его технически можно показать в
+браузере через `ttyd`/`wetty`, но тогда наружу публикуется административный терминал с Kubernetes credentials. Для
+student-facing интерфейса это неподходящая модель; максимум — закрытый OIDC/VPN admin-инструмент с отдельным read-only
+ServiceAccount.
 
 ### Современный web UI Containerlab
 
-Вероятный интерфейс «как в VS Code» — [containerlab-app](https://github.com/srl-labs/containerlab-app), использующий тот же пакет [clab-ui](https://github.com/srl-labs/clab-ui), что и VS Code extension. У него есть:
+Вероятный интерфейс «как в VS Code» — [containerlab-app](https://github.com/srl-labs/containerlab-app), использующий тот
+же пакет [clab-ui](https://github.com/srl-labs/clab-ui), что и VS Code extension. У него есть:
 
 - полностью локальный browser sandbox для редактирования и визуализации `*.clab.yml`;
 - web image `ghcr.io/srl-labs/containerlab-web`;
 - desktop app;
-- deploy/destroy, events и interactive sessions при подключении к [clab-api-server](https://github.com/srl-labs/clab-api-server).
+- deploy/destroy, events и interactive sessions при подключении
+  к [clab-api-server](https://github.com/srl-labs/clab-api-server).
 
-Но это другой execution backend. `containerlab-app` вызывает `clab-api-server` на Linux-хосте, который владеет Docker/containerlab, Linux users, network namespaces и файлами лабораторий. Он не создаёт Clabernetes `Topology` CR, namespace, PVC, ResourceQuota или HTTPRoute. Поэтому варианты такие:
+Но это другой execution backend. `containerlab-app` вызывает `clab-api-server` на Linux-хосте, который владеет
+Docker/containerlab, Linux users, network namespaces и файлами лабораторий. Он не создаёт Clabernetes `Topology` CR,
+namespace, PVC, ResourceQuota или HTTPRoute. Поэтому варианты такие:
 
-| Вариант | Подходит для | Ограничение |
-|---|---|---|
-| Сохранённый `clabernetes-ui` из `c9s` | Admin/instructor UI поверх текущего Kubernetes fork | Старый удалённый upstream-компонент, слишком широкие права |
-| `containerlab-app` sandbox | Редактирование и визуализация topology без инфраструктуры | Реальные лаборатории не запускает |
-| `containerlab-app` + `clab-api-server` | Один или несколько Linux lab hosts без Kubernetes | Отдельный privileged execution plane; не Clabernetes |
-| K9s через `ttyd` | Временный закрытый admin terminal | Не student UI и высокий риск credentials |
+| Вариант                                | Подходит для                                              | Ограничение                                                |
+|----------------------------------------|-----------------------------------------------------------|------------------------------------------------------------|
+| Сохранённый `clabernetes-ui` из `c9s`  | Admin/instructor UI поверх текущего Kubernetes fork       | Старый удалённый upstream-компонент, слишком широкие права |
+| `containerlab-app` sandbox             | Редактирование и визуализация topology без инфраструктуры | Реальные лаборатории не запускает                          |
+| `containerlab-app` + `clab-api-server` | Один или несколько Linux lab hosts без Kubernetes         | Отдельный privileged execution plane; не Clabernetes       |
+| K9s через `ttyd`                       | Временный закрытый admin terminal                         | Не student UI и высокий риск credentials                   |
 
-Для целевой архитектуры существующий общий frontend остаётся единственным student-facing интерфейсом, а `clabgate` владеет `LabSession` и Kubernetes resources. Сохранённый Clabernetes UI можно временно оставить администраторам; `containerlab-app` нужен максимум как отдельный authoring/visualization tool и не должен встраиваться в student lifecycle. Если будет принято решение отказаться не только от JupyterHub, но и от Kubernetes/Clabernetes, тогда `clab-api-server` становится альтернативой `clabgate`, а не его UI.
+Для целевой архитектуры существующий общий frontend остаётся единственным student-facing интерфейсом, а `clabgate`
+владеет `LabSession` и Kubernetes resources. Сохранённый Clabernetes UI можно временно оставить администраторам;
+`containerlab-app` нужен максимум как отдельный authoring/visualization tool и не должен встраиваться в student
+lifecycle. Если будет принято решение отказаться не только от JupyterHub, но и от Kubernetes/Clabernetes, тогда
+`clab-api-server` становится альтернативой `clabgate`, а не его UI.
 
 ## API первого релиза
 
@@ -641,14 +730,15 @@ Pending -> Scheduled -> Provisioning -> Ready -> Stopping -> Completed
 
 Цель: не расширять небезопасную основу.
 
-- проверять подпись и срок CMS JWT;
+- проверять CMS Bearer token через `/api/v1/sso/userinfo`; подпись и срок токена проверяет CMS;
 - закрыть ttyd proxy авторизацией и ownership check;
 - перейти с username-based namespace lookup на immutable session label;
 - прокидывать request context/deadline и перестать игнорировать Kubernetes errors;
 - добавить audit log для node actions;
 - убрать неиспользуемые права на secrets и сузить RBAC где возможно.
 
-Критерий выхода: подделанный/просроченный JWT и чужой ttyd URL отвергаются; действия трассируются до subject/session.
+Критерий выхода: CMS отвергает подделанный/просроченный token, а workspace proxy — чужой ttyd URL; действия
+трассируются до subject/session.
 
 ### Этап 1. Ввести декларативный каталог
 
@@ -659,7 +749,8 @@ Pending -> Scheduled -> Provisioning -> Ready -> Stopping -> Completed
 - закрепить notebook dependencies и образы;
 - заменить поиск `topology.template.yaml` по префиксам на точный manifest reference.
 
-Критерий выхода: любую существующую лабораторию можно однозначно разрешить по `labRef + revision`, а CI ловит отсутствующий файл/образ/запрещённый resource.
+Критерий выхода: любую существующую лабораторию можно однозначно разрешить по `labRef + revision`, а CI ловит
+отсутствующий файл/образ/запрещённый resource.
 
 ### Этап 2. Single-cluster LabSession controller
 
@@ -671,7 +762,8 @@ Pending -> Scheduled -> Provisioning -> Ready -> Stopping -> Completed
 - публиковать conditions и SSE events;
 - реализовать TTL/idle cleanup без зависимости от JupyterHub API.
 
-Критерий выхода: повторный create/stop безопасен, restart `clabgate` не теряет состояние, drift восстанавливается, удаление очищает все session resources.
+Критерий выхода: повторный create/stop безопасен, restart `clabgate` не теряет состояние, drift восстанавливается,
+удаление очищает все session resources.
 
 ### Этап 3. Запустить standalone Jupyter runtime
 
@@ -693,7 +785,8 @@ Pending -> Scheduled -> Provisioning -> Ready -> Stopping -> Completed
 - держать feature flag возврата на старый JupyterHub;
 - после стабильного периода удалить CMSSpawner, CHP, hub DB, named servers и idle CronJob.
 
-Критерий выхода: launch/stop/grade работают через `clabgate`, orphan scan чист, rollback проверен, Hub не обслуживает активные routes.
+Критерий выхода: launch/stop/grade работают через `clabgate`, orphan scan чист, rollback проверен, Hub не обслуживает
+активные routes.
 
 ### Этап 5. Мультикластерность
 
@@ -704,7 +797,8 @@ Pending -> Scheduled -> Provisioning -> Ready -> Stopping -> Completed
 - провести failure drills: cluster unavailable до/после Ready;
 - добавить per-cluster quotas, maintenance/drain и observability.
 
-Критерий выхода: новая session не назначается в нездоровый cluster, существующие sessions не мигрируют молча, control plane не хранит широкие kubeconfig worker clusters.
+Критерий выхода: новая session не назначается в нездоровый cluster, существующие sessions не мигрируют молча, control
+plane не хранит широкие kubeconfig worker clusters.
 
 ## Rollback и совместимость
 
@@ -719,7 +813,7 @@ Pending -> Scheduled -> Provisioning -> Ready -> Stopping -> Completed
 
 ### P0
 
-- настоящая JWT validation в `clabgate`;
+- CMS-backed проверка Bearer token в `clabgate`;
 - авторизация ttyd/WebSocket;
 - immutable session id и безопасный DNS slug;
 - idempotent server-side apply;
@@ -747,20 +841,20 @@ Pending -> Scheduled -> Provisioning -> Ready -> Stopping -> Completed
 
 ## Вопросы, которые нужно решить до реализации
 
-| Вопрос | Рекомендуемый вариант | Почему это важно |
-|---|---|---|
-| Независимость только от Hub или также от CMS? | Независимый generic execution API, CMS как adapter | Позволяет тестировать и запускать лаборатории без Moodle, не дублируя LTI в `clabgate` |
-| Нужны ли несколько одновременных sessions пользователя? | Да | Определяет domain scheme, quota и idempotency |
-| Что является стабильным user key? | OIDC `iss + sub`, не username/email | Username меняется и может быть невалидным DNS label |
-| Какой runtime по умолчанию? | `jupyter` для старых работ, `webide` для новых, `none` для topology-only | Существующие magic cells требуют IPython/Jupyter |
-| Где должна быть страница ожидания? | В CMS/LTI frontend, clabgate отдаёт API/SSE | Не создаёт второй student UI |
-| Какой Gateway controller используется в целевой среде и есть ли OIDC/ext-auth policy? | Проверить возможности текущего Cilium Gateway | Определяет централизованную авторизацию workspace |
-| Нужен ли прямой доступ к каждому ttyd? | По умолчанию через авторизованный terminal gateway/workspace | Прямой Service URL трудно безопасно отдать браузеру |
-| Политика хранения файлов после завершения? | Delete по умолчанию, Retain/Export явно для курса | Влияет на PVC, стоимость и персональные данные |
-| Источник истины каталога: Git submodules или единый repo/OCI? | Сначала Git + pinned SHA, затем при необходимости OCI | Убирает неоднозначный поиск raw URL |
-| Нужны ли совместные лаборатории из `Collaboration > 1`? | Подтвердить отдельно | Тогда session принадлежит room, а не одному пользователю, и меняется authorization/domain |
-| Нужны ли автоматические тесты и выставление баллов из среды? | Заложить signed result callback, реализацию отложить | Нельзя смешивать cleanup и grade delivery |
-| Какой SLA запуска и максимальный размер topology? | Зафиксировать по типам курса | Нужен для timeout, quota, scheduler и capacity planning |
+| Вопрос                                                                                | Рекомендуемый вариант                                                    | Почему это важно                                                                          |
+|---------------------------------------------------------------------------------------|--------------------------------------------------------------------------|-------------------------------------------------------------------------------------------|
+| Независимость только от Hub или также от CMS?                                         | Независимый generic execution API, CMS как adapter                       | Позволяет тестировать и запускать лаборатории без Moodle, не дублируя LTI в `clabgate`    |
+| Нужны ли несколько одновременных sessions пользователя?                               | Да                                                                       | Определяет domain scheme, quota и idempotency                                             |
+| Что является стабильным user key?                                                     | OIDC `iss + sub`, не username/email                                      | Username меняется и может быть невалидным DNS label                                       |
+| Какой runtime по умолчанию?                                                           | `jupyter` для старых работ, `webide` для новых, `none` для topology-only | Существующие magic cells требуют IPython/Jupyter                                          |
+| Где должна быть страница ожидания?                                                    | В CMS/LTI frontend, clabgate отдаёт API/SSE                              | Не создаёт второй student UI                                                              |
+| Какой Gateway controller используется в целевой среде и есть ли OIDC/ext-auth policy? | Проверить возможности текущего Cilium Gateway                            | Определяет централизованную авторизацию workspace                                         |
+| Нужен ли прямой доступ к каждому ttyd?                                                | По умолчанию через авторизованный terminal gateway/workspace             | Прямой Service URL трудно безопасно отдать браузеру                                       |
+| Политика хранения файлов после завершения?                                            | Delete по умолчанию, Retain/Export явно для курса                        | Влияет на PVC, стоимость и персональные данные                                            |
+| Источник истины каталога: Git submodules или единый repo/OCI?                         | Сначала Git + pinned SHA, затем при необходимости OCI                    | Убирает неоднозначный поиск raw URL                                                       |
+| Нужны ли совместные лаборатории из `Collaboration > 1`?                               | Подтвердить отдельно                                                     | Тогда session принадлежит room, а не одному пользователю, и меняется authorization/domain |
+| Нужны ли автоматические тесты и выставление баллов из среды?                          | Заложить signed result callback, реализацию отложить                     | Нельзя смешивать cleanup и grade delivery                                                 |
+| Какой SLA запуска и максимальный размер topology?                                     | Зафиксировать по типам курса                                             | Нужен для timeout, quota, scheduler и capacity planning                                   |
 
 ## Рекомендуемое первое решение
 
@@ -774,7 +868,8 @@ Pending -> Scheduled -> Provisioning -> Ready -> Stopping -> Completed
 6. idempotent create/status/stop;
 7. CMS feature flag для canary и возврата на JupyterHub.
 
-Такой срез проверяет главный риск — работу notebook и сетевой topology без Hub — и одновременно создаёт правильную основу для web-IDE, интеграции с существующим общим frontend и мультикластерного scheduler.
+Такой срез проверяет главный риск — работу notebook и сетевой topology без Hub — и одновременно создаёт правильную
+основу для web-IDE, интеграции с существующим общим frontend и мультикластерного scheduler.
 
 ## Навигация по текущему коду
 
@@ -783,10 +878,12 @@ Pending -> Scheduled -> Provisioning -> Ready -> Stopping -> Completed
 - manifest apply: `jupyter/cmsspawner/spawner/kubectl_topology.py`
 - CMS/Jupyter reconciliation: `jupyter/cmsspawner/idle/__init__.py`
 - Hub RBAC: `jupyter/k8s/role.template.yaml`
-- CMS attempt creation/routing: [`../backend/app/usecases/lti_attempt_create.go`](../backend/app/usecases/lti_attempt_create.go)
+- CMS attempt creation/routing: [
+  `../backend/app/usecases/lti_attempt_create.go`](../backend/app/usecases/lti_attempt_create.go)
 - attempt state model: [`../backend/app/models/lti_attempt_model.go`](../backend/app/models/lti_attempt_model.go)
 - current clabgate Kubernetes access: [`app/queries/kube_topology.go`](app/queries/kube_topology.go)
-- current unverified JWT parsing: [`app/usecases/auth/jwt_parser.go`](app/usecases/auth/jwt_parser.go)
-- current ttyd nginx proxy: [`../nextui-dashboard/nginx/templates/default.conf.template`](../nextui-dashboard/nginx/templates/default.conf.template)
+- current CMS-backed Bearer validation: [`app/usecases/auth/jwt_parser.go`](app/usecases/auth/jwt_parser.go)
+- current ttyd nginx proxy: [
+  `../nextui-dashboard/nginx/templates/default.conf.template`](../nextui-dashboard/nginx/templates/default.conf.template)
 - task catalog: `cms_task_collection/README.md`
 - CMS Labs Clabernetes fork: `cms-labs-clabernetes`

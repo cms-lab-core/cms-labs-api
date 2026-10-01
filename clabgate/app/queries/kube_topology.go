@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/maintainer64/cms-labs-api/clabgate/pkg/kubeconfig"
 	"github.com/maintainer64/cms-labs-api/shared/logs"
 	"github.com/rs/zerolog"
 	"gopkg.in/yaml.v3"
@@ -60,11 +61,11 @@ func NewKubernetesAdminWithClients(
 	}
 }
 
-// NewKubernetesAdmin создает клиент Kubernetes из in-cluster serviceaccount
+// NewKubernetesAdmin creates a client from a pod ServiceAccount or local kubeconfig.
 func NewKubernetesAdmin(zeroLogConf *logs.ZeroLoggerConf) (*KubernetesAdminQuery, error) {
-	config, err := rest.InClusterConfig()
+	config, err := kubeconfig.Load()
 	if err != nil {
-		return nil, fmt.Errorf("failed to create in-cluster config: %v", err)
+		return nil, fmt.Errorf("failed to load Kubernetes config: %v", err)
 	}
 
 	clientset, err := kubernetes.NewForConfig(config)

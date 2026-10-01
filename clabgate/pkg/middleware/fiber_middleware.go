@@ -24,8 +24,6 @@ func FiberMiddleware(a *fiber.App) {
 		}),
 		// Add simple healthcheck.
 		healthcheck.New(),
-		// Service JWT extractor
-		NewJWTMiddleware(),
 		// Add simple logger.
 		logs.NewFiberZerologLogger(),
 		// InternalFormatterException

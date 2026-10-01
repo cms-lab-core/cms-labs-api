@@ -11,13 +11,13 @@ import (
 	"github.com/maintainer64/cms-labs-api/clabgate/app/di"
 	_ "github.com/maintainer64/cms-labs-api/clabgate/docs" // load API Docs files (Swagger)
 	"github.com/maintainer64/cms-labs-api/clabgate/pkg/configs"
+	"github.com/maintainer64/cms-labs-api/clabgate/pkg/kubeconfig"
 	"github.com/maintainer64/cms-labs-api/clabgate/pkg/middleware"
 	"github.com/maintainer64/cms-labs-api/clabgate/pkg/routes"
 	"github.com/maintainer64/cms-labs-api/clabgate/pkg/utils"
 	"github.com/maintainer64/cms-labs-api/shared/logs"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/leaderelection"
 	"k8s.io/client-go/tools/leaderelection/resourcelock"
 )
@@ -63,7 +63,7 @@ func startSessionReconciler(ctx context.Context) {
 	go func() {
 		loggerConf := (&logs.ZeroLoggerConf{}).SetName("tasks.SessionReconciler")
 		logger := logs.NewZeroLogger(loggerConf)
-		clusterConfig, err := rest.InClusterConfig()
+		clusterConfig, err := kubeconfig.Load()
 		if err != nil {
 			logger.Error().Err(err).Msg("initialize reconciler leader election")
 			return
@@ -104,7 +104,11 @@ func startSessionReconciler(ctx context.Context) {
 
 func runSessionReconciler(ctx context.Context, loggerConf *logs.ZeroLoggerConf) {
 	logger := logs.NewZeroLogger(loggerConf)
-	interval := time.Duration(configs.AppConfig.Session.ReconcileSeconds) * time.Second
+	minInterval := time.Duration(configs.AppConfig.Session.ReconcileSeconds) * time.Second
+	maxInterval := time.Duration(configs.AppConfig.Session.ReconcileMaxSeconds) * time.Second
+	if maxInterval < minInterval {
+		maxInterval = minInterval
+	}
 	container, err := di.NewDIContainer(loggerConf)
 	if err != nil {
 		logger.Error().Err(err).Msg("initialize session reconciler")
@@ -117,26 +121,41 @@ func runSessionReconciler(ctx context.Context, loggerConf *logs.ZeroLoggerConf) 
 		return
 	}
 
-	reconcile := func() {
-		count, reconcileErr := uc.Reconcile(ctx)
+	reconcile := func() bool {
+		changes, reconcileErr := uc.Reconcile(ctx)
 		if reconcileErr != nil {
 			logger.Error().Err(reconcileErr).Msg("reconcile sessions")
-			return
+			return false
 		}
-		if count > 0 {
-			logger.Info().Int("updated_attempts", count).Msg("sessions reconciled")
+		if changes > 0 {
+			logger.Info().Int("changes", changes).Msg("sessions reconciled")
 		}
+		return changes > 0
 	}
 
-	reconcile()
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
+	interval := minInterval
+	if !reconcile() {
+		interval = nextReconcileInterval(interval, minInterval, maxInterval, false)
+	}
+	timer := time.NewTimer(interval)
+	defer timer.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case <-ticker.C:
-			reconcile()
+		case <-timer.C:
+			interval = nextReconcileInterval(interval, minInterval, maxInterval, reconcile())
+			timer.Reset(interval)
 		}
 	}
+}
+
+func nextReconcileInterval(current, minimum, maximum time.Duration, changed bool) time.Duration {
+	if changed || current < minimum {
+		return minimum
+	}
+	if current >= maximum || current > maximum/2 {
+		return maximum
+	}
+	return current * 2
 }

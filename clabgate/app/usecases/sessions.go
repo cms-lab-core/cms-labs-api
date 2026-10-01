@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strconv"
 	"time"
 
 	"github.com/google/uuid"
@@ -115,7 +116,7 @@ func (u *SessionsUC) Ensure(ctx context.Context, dto SessionEnsureInputDTO) (Ses
 	}
 	attempts, err := u.CMSClient.ListAttempts(cms_client.ListAttemptsParams{
 		AttemptIDs: []string{dto.AttemptID},
-		UserIDs:    []int64{int64(u.user.UserID())},
+		UserIDs:    sessionAttemptUserFilter(u.user),
 		Statuses:   []string{"pending", "active"},
 		Limit:      1,
 	})
@@ -125,12 +126,27 @@ func (u *SessionsUC) Ensure(ctx context.Context, dto SessionEnsureInputDTO) (Ses
 	if len(attempts) != 1 || attempts[0].AttemptID != dto.AttemptID {
 		return SessionOutputDTO{}, jsonrpc.NewRpcError("attempt_not_found", "active attempt was not found for current user")
 	}
-	record, err := u.ensureAttemptSession(ctx, attempts[0], u.user.Sub, u.user.Username)
+	ownerID, username := sessionAttemptOwner(u.user, attempts[0])
+	record, err := u.ensureAttemptSession(ctx, attempts[0], ownerID, username)
 	if err != nil {
 		u.Logger.Error().Err(err).Str("attempt_id", dto.AttemptID).Msg("ensure session")
 		return SessionOutputDTO{}, jsonrpc.NewRpcError("session_provision_failed", err.Error())
 	}
 	return SessionOutputDTO{Session: record}, nil
+}
+
+func sessionAttemptUserFilter(user *cms_client.SSOTokenPublicData) []int64 {
+	if isOperator(user) {
+		return nil
+	}
+	return []int64{int64(user.UserID())}
+}
+
+func sessionAttemptOwner(user *cms_client.SSOTokenPublicData, attempt cms_client.ListAttemptsModel) (string, string) {
+	if isOperator(user) {
+		return strconv.FormatInt(attempt.UserID, 10), attempt.UserName
+	}
+	return user.Sub, user.Username
 }
 
 func (u *SessionsUC) ensureAttemptSession(
@@ -154,7 +170,18 @@ func (u *SessionsUC) ensureAttemptSession(
 	} else if !apierrors.IsNotFound(existingErr) {
 		return queries.SessionRecord{}, fmt.Errorf("lookup existing session: %w", existingErr)
 	}
-	bundle, err := u.LabCatalog.BundleAt(ctx, attempt.LabsPath, pinnedRevision)
+	// The routing carries the whole Git link in `repository`, with an optional
+	// `#ref` fragment. CMS_TASK_URL and CMS_TASK_BRANCH are the fallback for
+	// routes that do not pin a repository of their own.
+	repository, repositoryRef := queries.ParseRepositoryLink(attempt.Repository)
+	repositoryURL := repository
+	if repositoryURL == "" {
+		repositoryURL = configs.AppConfig.Session.TaskRepositoryURL
+	}
+	if repositoryRef == "" {
+		repositoryRef = configs.AppConfig.Session.TaskBranch
+	}
+	bundle, err := u.LabCatalog.BundleFor(ctx, repositoryURL, repositoryRef, "", pinnedRevision)
 	if err != nil {
 		return queries.SessionRecord{}, fmt.Errorf("download task: %w", err)
 	}
@@ -163,14 +190,13 @@ func (u *SessionsUC) ensureAttemptSession(
 		OwnerID:         ownerID,
 		Username:        username,
 		Title:           attempt.RoutingName,
-		LabPath:         attempt.LabsPath,
 		TestPath:        attempt.TestPath,
 		TopologyYAML:    bundle.Manifest,
 		JupyterImage:    configs.AppConfig.Session.JupyterImage,
 		StorageSize:     configs.AppConfig.Session.JupyterStorage,
 		WorkspacePrefix: configs.AppConfig.Session.WorkspacePrefix,
-		TaskRepository:  configs.AppConfig.Session.TaskRepositoryURL,
-		TaskRef:         configs.AppConfig.Session.TaskBranch,
+		TaskRepository:  repositoryURL,
+		TaskRef:         repositoryRef,
 		TaskRevision:    bundle.Revision,
 	})
 	if err != nil {
@@ -249,7 +275,6 @@ func (u *SessionsUC) Check(ctx context.Context, dto SessionCheckInputDTO) (Sessi
 		Namespace:      record.Namespace,
 		AttemptID:      record.AttemptID,
 		OwnerID:        record.OwnerID,
-		LabPath:        record.LabPath,
 		TestPath:       record.TestPath,
 		Image:          configs.AppConfig.Session.CheckerImage,
 		TimeoutSeconds: configs.AppConfig.Session.CheckerTimeout,
@@ -278,6 +303,7 @@ func (u *SessionsUC) Open(ctx context.Context, dto SessionOpenInputDTO) (Session
 		configs.AppConfig.Session.WorkspaceSecret,
 		record.ID,
 		record.WorkspaceURL,
+		NewWorkspaceIdentity(u.user.Sub, u.user.Username, u.user.Name, u.user.Email, u.user.Roles),
 		time.Duration(configs.AppConfig.Session.WorkspaceGrantTTL)*time.Second,
 	)
 	if err != nil {

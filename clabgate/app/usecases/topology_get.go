@@ -94,7 +94,13 @@ func (u *TopologiesGetUC) Execute(dto TopologiesGetInputDTO) (TopologiesGetOutpu
 	ttyd, _ := u.KubernetesAdminQuery.GetTTYDInfoInNamespace(ctx, namespace)
 	for index := range ttyd {
 		destination := fmt.Sprintf("/clabgate/workspace/%s/terminal/%s/", dto.SessionID, ttyd[index].Name)
-		grant, grantErr := IssueWorkspaceGrant(u.WorkspaceSecret, dto.SessionID, destination, u.WorkspaceGrantTTL)
+		grant, grantErr := IssueWorkspaceGrant(
+			u.WorkspaceSecret,
+			dto.SessionID,
+			destination,
+			NewWorkspaceIdentity(u.user.Sub, u.user.Username, u.user.Name, u.user.Email, u.user.Roles),
+			u.WorkspaceGrantTTL,
+		)
 		if grantErr != nil {
 			return TopologiesGetOutputDTO{}, jsonrpc.NewRpcError("workspace_auth_unavailable", grantErr.Error())
 		}

@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	attemptID = "550e8400-e29b-41d4-a716-446655440000"
+	attemptID = "00000000-0000-0000-0000-000000000000"
 	revision  = "0123456789abcdef0123456789abcdef01234567"
 )
 
@@ -31,6 +31,7 @@ func main() {
 	}
 	mux.HandleFunc("GET /state", stateHandler)
 	mux.HandleFunc("GET /api/state", stateHandler)
+	mux.HandleFunc("GET /api/v1/sso/userinfo", handleUserInfo)
 	mux.HandleFunc("POST /api/v1/rpc", func(w http.ResponseWriter, r *http.Request) {
 		handleRPC(w, r, state)
 	})
@@ -42,6 +43,17 @@ func main() {
 	}
 	log.Printf("clabgate smoke mock listening on %s", server.Addr)
 	log.Fatal(server.ListenAndServe())
+}
+
+func handleUserInfo(w http.ResponseWriter, r *http.Request) {
+	if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
+		http.Error(w, "unauthorized", http.StatusUnauthorized)
+		return
+	}
+	writeJSON(w, map[string]any{
+		"sub": "42", "email": "student@example.com", "name": "smoke-student",
+		"username": "smoke-student", "roles": []string{"student"},
+	})
 }
 
 func handleRPC(w http.ResponseWriter, r *http.Request, state *mockState) {
@@ -70,7 +82,7 @@ func handleRPC(w http.ResponseWriter, r *http.Request, state *mockState) {
 			"result": map[string]any{"model": []map[string]any{{
 				"id": 1, "attempt_id": attemptID, "user_id": 42, "user_name": "smoke-student",
 				"status": status, "server_client_id": "k8s", "lti_routing_name": "Local smoke lab",
-				"labs_path": "labs/smoke", "test_path": "", "result": result,
+				"repository": "https://git.example.test/group/labs-smoke.git#main", "test_path": "", "result": result,
 			}}},
 		})
 	case "lti_attempt.update_external":
@@ -115,7 +127,7 @@ func handleGitLab(w http.ResponseWriter, r *http.Request) {
 	case strings.Contains(requestPath, "/repository/commits/master"):
 		writeJSON(w, map[string]string{"id": revision})
 	case strings.HasSuffix(requestPath, "/repository/tree"):
-		writeJSON(w, []map[string]string{{"path": "labs/smoke/topology.yaml", "type": "blob"}})
+		writeJSON(w, []map[string]string{{"path": "topology.yaml", "type": "blob"}})
 	case strings.Contains(requestPath, "/repository/files/") && strings.HasSuffix(requestPath, "/raw"):
 		w.Header().Set("Content-Type", "application/yaml")
 		_, _ = w.Write([]byte(`apiVersion: c9s.run/v1alpha1
