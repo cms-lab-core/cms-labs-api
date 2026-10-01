@@ -76,7 +76,9 @@ export const LTIAttemptTableWrapper = ({ rows, isLoading, loadMore, selectedKeys
                     {RenderCell({
                       item,
                       columnKey,
-                      locale
+                      locale,
+                      connectLabel: LTIAttemptsTable.Connect,
+                      editLabel: LTIAttemptsTable.ButtonEdit
                     })}
                   </TableCell>
                 )}

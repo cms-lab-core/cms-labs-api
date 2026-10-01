@@ -24,12 +24,12 @@ export default defineConfig({
 function setupProxy(): CommonServerOptions["proxy"] {
     return {
         "/api": {
-            target: "https://auth.k8s-pre.cmslabs.ru",
+            target: "http://localhost:5000",
             secure: false,
             changeOrigin: true,
         },
         "/clabgate/api/": {
-            target: "https://auth.k8s-pre.cmslabs.ru",
+            target: "http://localhost:5001",
             secure: false,
             changeOrigin: true,
         }

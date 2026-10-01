@@ -1,6 +1,6 @@
 'use client';
 import React, { type MouseEvent as ReactMouseEvent, useCallback, useEffect, useRef, useState } from 'react';
-import { Background, Controls, ReactFlow } from '@xyflow/react';
+import { Background, Controls, ReactFlow, useReactFlow } from '@xyflow/react';
 import { edgeTypes, nodeTypes } from './objectTypes';
 import { getLayoutElements } from './autoLayout';
 import { ErrorModal } from '@/components/pages/auth/error';
@@ -17,9 +17,15 @@ import { RFNodeTopology } from '@/components/topology/objectTypes/types';
 
 interface TopologyFlowVisualizationProps {
   dispatch?: TerminalActionFunc;
+  highlightedNodeId?: string;
+  active?: boolean;
 }
 
-export const TopologyFlowVisualization = ({ dispatch }: TopologyFlowVisualizationProps) => {
+export const TopologyFlowVisualization = ({
+  dispatch,
+  highlightedNodeId,
+  active = true
+}: TopologyFlowVisualizationProps) => {
   const { theme } = useThemeBrowser();
   const [menu, setMenu] = useState<RFContextMenuProps>({});
   const onNodeContextMenu = useCallback(
@@ -52,6 +58,14 @@ export const TopologyFlowVisualization = ({ dispatch }: TopologyFlowVisualizatio
   const sessionId = useParams().sessionId || '';
   const ref = useRef(null);
   const queryTopology = useQueryTopologyGet({ sessionId });
+  const { fitView } = useReactFlow();
+  useEffect(() => {
+    if (!active || !queryTopology.data) return;
+    const frame = window.requestAnimationFrame(() => {
+      fitView({ padding: 0.16, duration: 250 });
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [active, fitView, queryTopology.data]);
   useEffect(() => {
     // @ts-ignore
     window.document.title = `Lab ${sessionId}`;
@@ -73,12 +87,16 @@ export const TopologyFlowVisualization = ({ dispatch }: TopologyFlowVisualizatio
   }
   const parsedTopology = parseTopology(queryTopology.data);
   const object = getLayoutElements(parsedTopology.nodes, parsedTopology.edges, parsedTopology.direction);
+  const nodes = object.nodes.map((node) => ({
+    ...node,
+    className: node.id === highlightedNodeId ? 'lab-node-highlight' : undefined
+  }));
 
   return (
     <ReactFlow
       ref={ref}
       colorMode={theme}
-      nodes={object.nodes}
+      nodes={nodes}
       // @ts-ignore
       edges={object.edges}
       nodeTypes={nodeTypes}

@@ -7,6 +7,10 @@ const ru = {
     FieldEmailDescription: 'Введите корпоративную почту',
     FieldPassword: 'Пароль',
     Submit: 'Войти',
+    InitialCredentialsTitle: 'Учётные данные по умолчанию',
+    InitialCredentialsDescription: 'При первом входе используйте эти данные, а затем смените пароль.',
+    InitialCredentialsLogin: 'Логин',
+    InitialCredentialsPassword: 'Пароль',
     ErrorFieldEmailNotEmpty: 'Это должна быть почта',
     ErrorFieldEmailRequired: 'Email не указан',
     ErrorFieldPasswordRequired: 'Пароль не указан'
@@ -39,6 +43,7 @@ const ru = {
     AuthProviders: 'Идентификации',
     LTIRouting: 'Маршруты LTI',
     LTIAttempts: 'Попытки LTI',
+    Labs: 'Лабораторные работы',
     APIRequests: 'Запросы по API',
     AnyList: 'Список',
     Profile: 'Профиль',
@@ -108,6 +113,7 @@ const ru = {
       FilterServer: 'Сервер',
       BulkAction: 'Массовые действия',
       BulkTerminating: 'Завершить выбранные',
+      Connect: 'Подключиться',
       Columns: [
         { name: 'ID', uid: 'id' },
         { name: 'ПОЛЬЗОВАТЕЛЬ', uid: 'user' },
@@ -557,6 +563,20 @@ const ru = {
       Title: 'Удалить target',
       Description: 'Вы уверены, что хотите удалить этот объект?'
     }
+  },
+  LabCatalog: {
+    Title: 'Лабораторные работы',
+    Description: 'Выберите стенд, чтобы создать новую попытку или продолжить активную.',
+    Search: 'Поиск лабораторной работы',
+    Loading: 'Загрузка каталога',
+    Error: 'Не удалось загрузить каталог лабораторных работ.',
+    Retry: 'Повторить',
+    Empty: 'Лабораторные работы не найдены.',
+    NoDescription: 'Описание пока не добавлено.',
+    Collaboration: 'Участников',
+    Start: 'Запустить',
+    Continue: 'Продолжить',
+    StartError: 'Не удалось создать попытку. Попробуйте ещё раз.'
   },
   Topology: {
     Menu: {

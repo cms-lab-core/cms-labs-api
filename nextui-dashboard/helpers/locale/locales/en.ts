@@ -7,6 +7,10 @@ const en = {
     FieldEmailDescription: 'Enter your business email address',
     FieldPassword: 'Password',
     Submit: 'Login',
+    InitialCredentialsTitle: 'Default credentials',
+    InitialCredentialsDescription: 'Use these credentials for the first sign-in, then change the password.',
+    InitialCredentialsLogin: 'Login',
+    InitialCredentialsPassword: 'Password',
     ErrorFieldEmailNotEmpty: 'This field must be an email',
     ErrorFieldEmailRequired: 'Email is required',
     ErrorFieldPasswordRequired: 'Password is required'
@@ -39,6 +43,7 @@ const en = {
     AuthProviders: 'Auth providers',
     LTIRouting: 'LTI Routes',
     LTIAttempts: 'LTI Attempts',
+    Labs: 'Laboratory work',
     APIRequests: 'API Requests',
     AnyList: 'List',
     Profile: 'Profile',
@@ -108,6 +113,7 @@ const en = {
       FilterServer: 'Server',
       BulkAction: 'Bulk Actions',
       BulkTerminating: 'Terminate Selected',
+      Connect: 'Open lab',
       Columns: [
         { name: 'ID', uid: 'id' },
         { name: 'USER', uid: 'user' },
@@ -556,6 +562,20 @@ const en = {
       Title: 'Delete target',
       Description: 'Are you sure you want to delete this object?'
     }
+  },
+  LabCatalog: {
+    Title: 'Laboratory work',
+    Description: 'Choose a lab to start a new attempt or continue an active one.',
+    Search: 'Search laboratories',
+    Loading: 'Loading catalog',
+    Error: 'Unable to load the laboratory catalog.',
+    Retry: 'Retry',
+    Empty: 'No laboratories were found.',
+    NoDescription: 'No description has been provided yet.',
+    Collaboration: 'Participants',
+    Start: 'Start',
+    Continue: 'Continue',
+    StartError: 'Unable to create an attempt. Please try again.'
   },
   Topology: {
     Menu: {

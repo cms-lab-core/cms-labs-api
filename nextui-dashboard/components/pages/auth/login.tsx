@@ -16,6 +16,11 @@ import { useMemo } from 'react';
 import { KeyRound } from 'lucide-react';
 import { useQueryAuthProviderList } from '@/helpers/queries/lti_form/use-query-lti-form-list';
 
+const safeReturnTo = (returnTo: string | null): string | null => {
+  if (!returnTo?.startsWith('/') || returnTo.startsWith('//')) return null;
+  return returnTo;
+};
+
 const defaultValues: CamelCasedPropertiesDeep<AuthRenewManagerCredentialsInputDTO> = {
   email: '',
   password: '',
@@ -25,6 +30,7 @@ const defaultValues: CamelCasedPropertiesDeep<AuthRenewManagerCredentialsInputDT
 export const Login = () => {
   const { locale } = useLanguageBrowser();
   const [searchParams, setSearchParams] = useSearchParams();
+  const returnTo = safeReturnTo(searchParams.get('return_to'));
 
   const { data: authProvidersData, isLoading } = useQueryAuthProviderList({
     isAuth: true,
@@ -62,7 +68,7 @@ export const Login = () => {
       formikHelpers.resetForm();
       const params = SSOAuthorizationGet();
       if (params === null) {
-        window.location.href = RoutesLocation.home();
+        window.location.href = returnTo || RoutesLocation.home();
       } else {
         mutateSsoAuthorize({
           clientId: params.clientId,
@@ -87,10 +93,13 @@ export const Login = () => {
   return (
     <div className='flex flex-col items-center w-full'>
       <div className='text-center text-[25px] font-bold mb-6'>{locale.Login.PageName}</div>
-
       <Tabs
         selectedKey={activeTab}
-        onSelectionChange={(key) => setSearchParams({ type: key as string })}
+        onSelectionChange={(key) => {
+          const nextSearchParams = new URLSearchParams(searchParams);
+          nextSearchParams.set('type', key as string);
+          setSearchParams(nextSearchParams);
+        }}
         className='mb-6'
       >
         {tabs.map((tab, index) => (

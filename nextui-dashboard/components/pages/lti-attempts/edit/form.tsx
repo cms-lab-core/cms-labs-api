@@ -1,5 +1,5 @@
 'use client';
-import React, { useState } from 'react';
+import React from 'react';
 import { Accordion, AccordionItem, addToast, Button, Input, Select, SelectItem } from '@heroui/react';
 import { Formik } from 'formik';
 import { ModelsLTIAttempt } from '@/helpers/api';
@@ -16,6 +16,7 @@ import { useQueryUserGet } from '@/helpers/queries/user/use-query-user-get';
 import { useQueryLtiRoutingGet } from '@/helpers/queries/lti_routing/use-query-lti-routing-get';
 import { useMutationLtiAttemptUpdate } from '@/helpers/queries/lti_attempt/use-mutation-lti-attempt-update';
 import { useMutationLtiAttemptDelete } from '@/helpers/queries/lti_attempt/use-mutation-lti-attempt-delete';
+import { LogIn } from 'lucide-react';
 
 interface EditFormProps {
   id?: number;
@@ -36,7 +37,12 @@ const defaultValues: CamelCasedPropertiesDeep<ModelsLTIAttempt> = {
 
 export const LtiAttemptEditForm = ({ id }: EditFormProps) => {
   const {
-    locale: { AuthProviderAttempt, Forms, Sidebar }
+    locale: {
+      AuthProviderAttempt,
+      Forms,
+      Sidebar,
+      Tables: { LTIAttemptsTable }
+    }
   } = useLanguageBrowser();
   const navigate = useNavigate();
   const response = useQueryLtiAttemptGet({ id });
@@ -260,6 +266,16 @@ export const LtiAttemptEditForm = ({ id }: EditFormProps) => {
             <Button onPress={() => handleSubmit()} variant='flat' color='primary'>
               {Sidebar.Save}
             </Button>
+            {(initialValues.status === 'pending' || initialValues.status === 'active') && initialValues.attemptId && (
+              <Button
+                onPress={() => navigate(RoutesLocation.session(initialValues.attemptId))}
+                variant='flat'
+                color='success'
+                startContent={<LogIn className='h-4 w-4' />}
+              >
+                {LTIAttemptsTable.Connect}
+              </Button>
+            )}
             <Button onPress={ltiAttemptDeletePopup.onOpen} variant='flat' color='danger'>
               {Sidebar.Delete}
             </Button>

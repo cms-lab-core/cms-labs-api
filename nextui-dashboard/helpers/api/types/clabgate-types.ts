@@ -93,12 +93,41 @@ export interface UsecasesTopologiesGetResponse {
   result?: UsecasesTopologiesGetOutputDTO;
 }
 
-export type QueriesSessionPhase = 'pending' | 'provisioning' | 'ready' | 'degraded' | 'failed' | 'stopping';
+export type QueriesSessionPhase = 'pending' | 'provisioning' | 'ready' | 'active' | 'degraded' | 'failed' | 'stopping';
+
+export interface QueriesCheckerTaskLog {
+  message?: string;
+  namespace?: string;
+  node?: string;
+}
+
+export interface QueriesCheckerTaskResult {
+  complete?: boolean;
+  description?: string;
+  logs?: QueriesCheckerTaskLog[];
+  title?: string;
+}
+
+export interface QueriesCheckerRun {
+  check_id?: string;
+  completed_at?: string;
+  current_score?: number;
+  error?: string;
+  job_name?: string;
+  logs?: string;
+  max_score?: number;
+  report?: string;
+  result_display?: string;
+  started_at?: string;
+  status?: string;
+  tasks?: QueriesCheckerTaskResult[];
+}
 
 export interface QueriesSessionRecord {
   attempt_id?: string;
   checker_running?: boolean;
   checker_successful?: boolean;
+  checker?: QueriesCheckerRun;
   created_at?: string;
   desired_resources_accepted?: boolean;
   id?: string;

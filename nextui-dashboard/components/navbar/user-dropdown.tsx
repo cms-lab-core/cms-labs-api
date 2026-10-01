@@ -16,15 +16,14 @@ export const UserDropdown = () => {
 
   const { mutateAsync } = useMutationUserLogout();
 
-  const handleUser = useCallback(async () => {
-    await mutateAsync({});
+  const handleUser = useCallback(() => {
     navigate(RoutesLocation.accountsEdit(user.sub));
-  }, [navigate, mutateAsync, user.sub]);
+  }, [navigate, user.sub]);
 
   const handleLogout = useCallback(async () => {
     await mutateAsync({});
-    navigate(RoutesLocation.login());
-  }, [navigate, mutateAsync]);
+    window.location.replace(RoutesLocation.login());
+  }, [mutateAsync]);
 
   const handleChangeLanguage = useCallback(() => {
     navigate(RoutesLocation.language());

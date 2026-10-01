@@ -1,17 +1,7 @@
-import React, { useReducer } from 'react';
-import { TopologyFlowVisualization } from '@/components/topology/view';
-import { TerminalWindows } from '@/components/topology/terminal/window';
-import { terminalInitialState, terminalReducer } from '@/components/topology/terminal/service/context';
-import { TopologyLayout } from '@/components/topology/layout';
+import { Navigate, useParams } from 'react-router-dom';
+import { RoutesLocation } from '@/components/routes';
 
-export const TopologyPageView = () => {
-  const [state, dispatch] = useReducer(terminalReducer, terminalInitialState);
-  return (
-    <TopologyLayout>
-      <TerminalWindows nodes={state.clients} dispatch={dispatch} />
-      <TopologyFlowVisualization dispatch={dispatch} />
-    </TopologyLayout>
-  );
-};
-
-export default TopologyPageView;
+export default function LegacyTopologyPage() {
+  const { sessionId } = useParams();
+  return <Navigate replace to={RoutesLocation.sessionTopology(sessionId || '')} />;
+}

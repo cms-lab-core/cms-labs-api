@@ -12,10 +12,10 @@ interface UseConfirmPopupProps {
 
 export const useConfirmPopup = (params: UseConfirmPopupProps) => {
   const { isOpen, onOpen, onOpenChange } = useDisclosure();
+  const {
+    locale: { Sidebar }
+  } = useLanguageBrowser();
   const component = (props: UseConfirmPopupProps) => {
-    const {
-      locale: { Sidebar }
-    } = useLanguageBrowser();
     return (
       <Modal
         classNames={{
@@ -36,7 +36,13 @@ export const useConfirmPopup = (params: UseConfirmPopupProps) => {
                 <Button color='danger' variant='light' onPress={onClose}>
                   {Sidebar.Close}
                 </Button>
-                <Button color='primary' onPress={props.onConfirm || params.onConfirm}>
+                <Button
+                  color='primary'
+                  onPress={() => {
+                    (props.onConfirm || params.onConfirm)?.();
+                    onClose();
+                  }}
+                >
                   {Sidebar.Confirm}
                 </Button>
               </ModalFooter>

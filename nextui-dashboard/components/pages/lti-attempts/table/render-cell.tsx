@@ -3,15 +3,18 @@ import { ModelsLTIAttemptListItem } from '@/helpers/api';
 import { Link } from 'react-router-dom';
 import { RoutesLocation } from '@/components/routes';
 import { CamelCasedPropertiesDeep } from 'type-fest';
-import { SquarePen } from 'lucide-react';
+import { LogIn, SquarePen } from 'lucide-react';
+import { Button } from '@heroui/react';
 
 interface Props {
   item: CamelCasedPropertiesDeep<ModelsLTIAttemptListItem>;
   columnKey: string | React.Key;
   locale: any;
+  connectLabel: string;
+  editLabel: string;
 }
 
-export const RenderCell = ({ item, columnKey, locale }: Props) => {
+export const RenderCell = ({ item, columnKey, locale, connectLabel, editLabel }: Props) => {
   switch (columnKey) {
     case 'id':
       return (
@@ -60,12 +63,29 @@ export const RenderCell = ({ item, columnKey, locale }: Props) => {
       );
     case 'actions':
       return (
-        <div className='flex items-center gap-4 '>
-          <div>
-            <Link to={RoutesLocation.ltiAttemptEdit(item.id?.toString())}>
-              <SquarePen className='w-5 h-5 stroke-[#969696]' />
-            </Link>
-          </div>
+        <div className='flex items-center justify-end gap-2'>
+          {(item.status === 'pending' || item.status === 'active') && item.attemptId && (
+            <Button
+              as={Link}
+              to={RoutesLocation.session(item.attemptId)}
+              size='sm'
+              color='success'
+              variant='flat'
+              startContent={<LogIn className='h-4 w-4' />}
+            >
+              {connectLabel}
+            </Button>
+          )}
+          <Button
+            as={Link}
+            to={RoutesLocation.ltiAttemptEdit(item.id?.toString())}
+            isIconOnly
+            size='sm'
+            variant='light'
+            aria-label={editLabel}
+          >
+            <SquarePen className='h-5 w-5 stroke-[#969696]' />
+          </Button>
         </div>
       );
     default:

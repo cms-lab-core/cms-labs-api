@@ -23,6 +23,7 @@ export const RoutesLocation = {
   targets: () => '/targets',
   targetsEdit: (id = ':id') => `/targets/edit/${id}`,
   targetsCreate: () => '/targets/create',
+  labs: () => '/labs',
   ltiRedirect: () => '/lti-redirect',
   ltiRedirectCreate: () => '/lti-redirect/create',
   ltiAttemptEdit: (id = ':id') => `/lti-attempt/edit/${id}`,
@@ -44,6 +45,8 @@ export const RoutesLocation = {
     return query ? `${url}?${query}` : url;
   },
   session: (sessionId = ':sessionId') => `/session/${sessionId}`,
-  sessionTopology: (sessionId = ':sessionId') => `/session/${sessionId}/topology`,
+  sessionWorkspace: (sessionId = ':sessionId') => `/session/${sessionId}/workspace`,
+  sessionTopology: (sessionId = ':sessionId') => `/session/${sessionId}?tab=topology`,
+  sessionTopologyLegacy: (sessionId = ':sessionId') => `/session/${sessionId}/topology`,
   home: () => '/'
 };

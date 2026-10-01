@@ -1,6 +1,6 @@
 'use client';
 import { LanguageType } from '@/helpers/locale/locale';
-import { Image } from '@heroui/react';
+import { Button, Image } from '@heroui/react';
 import FlagEn from './flagEn.svg';
 import FlagRu from './flagRu.svg';
 import useLanguageBrowser from '@/helpers/locale';
@@ -28,24 +28,26 @@ const LanguageSwitcher = () => {
     navigate(-1);
   };
 
-  const langBlock = languages.map((item, index) => (
-    <button
-      key={`lang-${index}`}
-      onClick={() => {
+  const langBlock = languages.map((item) => (
+    <Button
+      key={item.lang}
+      variant='bordered'
+      onPress={() => {
         setLang(item.lang);
+        navigate(-1);
       }}
-      className='flex flex-col items-center p-4 border rounded-lg shadow bg-default-50 hover:bg-default-100 cursor-pointer'
+      className='h-auto flex-1 flex-col gap-2 py-5'
     >
-      <Image src={item.img} alt={item.lang} width='20' height='20' className='w-16 h-16 mb-2' />
+      <Image src={item.img} alt={item.text} width='64' height='42' className='h-10 w-16 object-cover' />
       <span>{item.text}</span>
-    </button>
+    </Button>
   ));
 
   return (
     <Modal isOpen={true} onClose={handleClose}>
       <ModalContent>
         <ModalHeader className='flex flex-col gap-1'>{locale.LanguageSwitcher.LanguageSwitch}</ModalHeader>
-        <ModalBody>{langBlock}</ModalBody>
+        <ModalBody className='flex-row gap-3 pb-6'>{langBlock}</ModalBody>
       </ModalContent>
     </Modal>
   );

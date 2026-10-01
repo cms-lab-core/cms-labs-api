@@ -32,6 +32,13 @@ class TransportWithoutAuth {
   userTokenAccess(): AuthData | undefined {
     return this.authData;
   }
+
+  userTokenClear(): void {
+    this.authData = {
+      accessToken: '',
+      expiredAt: new Date(-1)
+    };
+  }
 }
 
 export const transportWithoutAuth = new TransportWithoutAuth();

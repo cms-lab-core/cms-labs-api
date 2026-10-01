@@ -23,11 +23,9 @@ server {
     ${SSL_CONF}
     listen 80 default;
 
-    # Обслуживание статических файлов
-    location / {
-        root /usr/share/nginx/html/;
-        try_files $uri /index.html;
-    }
+    # Production serves the bundled application here. The local kind gateway
+    # mounts a development version of this include which proxies Vite instead.
+    include /etc/nginx/frontend-location.conf;
 
     # Проксирование /api/ на другой контейнер
     location /api/ {
@@ -81,7 +79,9 @@ server {
         proxy_read_timeout                  1800s;
         proxy_buffering                     off;
         proxy_cache                         off;
-        proxy_set_header Host              $host;
+        # Preserve the browser-visible port for ttyd WebSocket origin checks.
+        proxy_set_header Host              $http_host;
+        proxy_set_header X-Forwarded-Host  $http_host;
         proxy_set_header X-Original-URI    $request_uri;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Real-IP         $remote_addr;
@@ -95,6 +95,7 @@ server {
         set $workspace_target http://jupyter.lab-$workspace_session.svc.cluster.local:8888;
 
         auth_request /_clabgate_workspace_verify;
+		auth_request_set $workspace_identity $upstream_http_x_cms_identity;
 
         proxy_pass $workspace_target$request_uri;
         proxy_http_version 1.1;
@@ -106,12 +107,18 @@ server {
         proxy_buffering                     off;
         proxy_cache                         off;
 
-        proxy_set_header Host              $host;
+        # Jupyter/Tornado compares Host with Origin for state-changing
+        # requests and WebSocket upgrades, so the external port is required.
+        proxy_set_header Host              $http_host;
+        proxy_set_header X-Forwarded-Host  $http_host;
         proxy_set_header X-Scheme          $scheme;
         proxy_set_header X-Original-URI    $request_uri;
         proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
         proxy_set_header X-Real-IP         $remote_addr;
         proxy_set_header X-Forwarded-Proto $forwarded_proto;
+		# Always overwrite the browser-supplied value with the identity returned
+		# by Clabgate's internal authorization subrequest.
+		proxy_set_header X-CMS-Identity $workspace_identity;
     }
 
     # Проксирование /clabgate/api/ на другой контейнер (общий fallback)

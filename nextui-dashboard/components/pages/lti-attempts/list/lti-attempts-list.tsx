@@ -49,6 +49,7 @@ export const LTIAttemptsListPage = () => {
   }, [searchParams]);
 
   const [selectedAttempts, setSelectedAttempts] = useState<Set<string | number>>(new Set());
+  const [bulkTerminating, setBulkTerminating] = useState(false);
 
   const selectedStatuses = queryParams.statuses;
   const selectedUserId = queryParams.userId;
@@ -86,14 +87,34 @@ export const LTIAttemptsListPage = () => {
   const totalCount = (response.data?.pages[0] as any)?.totalCount ?? 0;
   const hasSelection = selectedAttempts.size > 0;
 
-  const bulkTerminatingMutation = useMutationLtiAttemptUpdate({
-    onSuccess: () => {
-      addToast({ title: locale.Sidebar.Success, color: 'success' });
-      setSelectedAttempts(new Set());
-    },
-    onError: (error: any) =>
-      addToast({ title: locale.Forms.SaveError, description: error?.data?.message, color: 'danger' })
-  });
+  const bulkTerminatingMutation = useMutationLtiAttemptUpdate();
+
+  const terminateSelected = async () => {
+    const attempts = Array.from(selectedAttempts);
+    if (attempts.length === 0 || bulkTerminating) return;
+
+    setBulkTerminating(true);
+    const failed = new Set<string | number>();
+    let firstError = '';
+    for (const selectedID of attempts) {
+      try {
+        await bulkTerminatingMutation.mutateAsync({ id: Number(selectedID), status: 'terminating' });
+      } catch (error: any) {
+        failed.add(selectedID);
+        firstError ||= error?.data?.message || error?.message || locale.Forms.SaveError;
+      }
+    }
+    setSelectedAttempts(failed);
+    setBulkTerminating(false);
+
+    const completed = attempts.length - failed.size;
+    addToast({
+      title: failed.size === 0 ? locale.Sidebar.Success : locale.Forms.SaveError,
+      description:
+        failed.size === 0 ? `${completed} / ${attempts.length}` : `${completed} / ${attempts.length}. ${firstError}`,
+      color: failed.size === 0 ? 'success' : completed > 0 ? 'warning' : 'danger'
+    });
+  };
 
   const bulkDeleteMutation = useMutationLtiAttemptDelete({
     onSuccess: () => {
@@ -118,17 +139,7 @@ export const LTIAttemptsListPage = () => {
               </Button>
             </div>
             <div className='flex items-center gap-2'>
-              <Button
-                size='sm'
-                variant='flat'
-                color='warning'
-                onPress={() =>
-                  Array.from(selectedAttempts)
-                    .map(Number)
-                    .forEach((id) => bulkTerminatingMutation.mutate({ id, status: 'terminating' }))
-                }
-                isLoading={bulkTerminatingMutation.isPending}
-              >
+              <Button size='sm' variant='flat' color='warning' onPress={terminateSelected} isLoading={bulkTerminating}>
                 {LTIAttemptsTable.BulkTerminating}
               </Button>
               <Button
