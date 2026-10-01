@@ -100,7 +100,7 @@ func TestLabCatalogBundleUsesGitHubAPIAndStableOrder(t *testing.T) {
 		return &http.Response{StatusCode: status, Header: header, Body: io.NopCloser(strings.NewReader(string(body))), Request: r}, nil
 	}))
 
-	catalog := NewLabCatalog("https://github.com/maintainer64/lab-tasks.git", "main", "github-token", client)
+	catalog := NewLabCatalog("https://github.com/cms-lab-core/lab-tasks.git", "main", "github-token", client)
 	bundle, err := catalog.Bundle(context.Background(), "course/lab-1")
 	if err != nil {
 		t.Fatal(err)
@@ -149,7 +149,7 @@ func TestLabCatalogBundleUsesGitForPublicGitHubAndPinsRevision(t *testing.T) {
 	runTestGit(t, repositoryDir, "commit", "-m", "initial task")
 	firstRevision := strings.TrimSpace(runTestGit(t, repositoryDir, "rev-parse", "HEAD"))
 
-	catalog := NewLabCatalog("https://github.com/maintainer64/cms-labs-simple-task.git", "main", "", resty.New())
+	catalog := NewLabCatalog("https://github.com/cms-lab-core/cms-labs-simple-task.git", "main", "", resty.New())
 	repository := repositoryLocation{provider: providerGitHub, cloneURL: repositoryDir}
 	bundle, err := catalog.bundleFromGit(context.Background(), repository, "task", "")
 	if err != nil {

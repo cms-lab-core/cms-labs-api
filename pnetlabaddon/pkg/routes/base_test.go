@@ -7,21 +7,21 @@ import (
 	"net/http/httptest"
 	"strings"
 
-	"github.com/maintainer64/cms-labs-api/shared/connection"
+	"github.com/cms-lab-core/cms-labs-api/shared/connection"
 
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/app/di"
 	resty "github.com/go-resty/resty/v2"
 	"github.com/h2non/gock"
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/app/di"
 
-	"github.com/maintainer64/cms-labs-api/shared/logs"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 
 	json "github.com/goccy/go-json"
 
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/pkg/configs"
 
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/pkg/middleware"
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/pkg/middleware"
 	"gorm.io/gorm"
 )
 

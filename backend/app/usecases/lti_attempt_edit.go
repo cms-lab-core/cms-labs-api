@@ -1,9 +1,9 @@
 package usecases
 
 import (
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/backend/app/queries"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases/tasks"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases/tasks"
 	"gorm.io/datatypes"
 )
 

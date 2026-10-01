@@ -1,4 +1,4 @@
-defaultImage: ghcr.io/maintainer64/cms-labs-api/clabgate
+defaultImage: ghcr.io/cms-lab-core/cms-labs-api/clabgate
 
 deployments:
   clabgate:

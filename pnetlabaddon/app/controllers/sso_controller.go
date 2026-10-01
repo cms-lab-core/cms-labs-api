@@ -3,12 +3,12 @@ package controllers
 import (
 	"strings"
 
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/app/di"
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/app/usecases"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 	fiber "github.com/gofiber/fiber/v2"
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/app/di"
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/app/usecases"
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
 )
 
 // SSOFirstFactor Переадресация пользователя на сервер аутентификации.

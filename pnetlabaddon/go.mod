@@ -1,8 +1,8 @@
-module github.com/maintainer64/cms-labs-api/pnetlabaddon
+module github.com/cms-lab-core/cms-labs-api/pnetlabaddon
 
 go 1.24.4
 
-replace github.com/maintainer64/cms-labs-api/shared => ../shared
+replace github.com/cms-lab-core/cms-labs-api/shared => ../shared
 
 require (
 	ariga.io/atlas-provider-gorm v0.5.0
@@ -13,7 +13,7 @@ require (
 	github.com/google/uuid v1.6.0
 	github.com/h2non/gock v1.2.0
 	github.com/joho/godotenv v1.5.1
-	github.com/maintainer64/cms-labs-api/shared v0.0.0-00010101000000-000000000000
+	github.com/cms-lab-core/cms-labs-api/shared v0.0.0-00010101000000-000000000000
 	github.com/ogen-go/ogen v1.9.0
 	github.com/rs/zerolog v1.33.0
 	github.com/stretchr/testify v1.10.0

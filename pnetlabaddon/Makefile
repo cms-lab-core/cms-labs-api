@@ -45,4 +45,4 @@ generate:
 	go generate
 
 crud:
-	cd ../gen && go run . -model $(MODEL) -root "github.com/maintainer64/cms-labs-api/pnetlabaddon" -directory $(CUR_DIR) && cd $(CUR_DIR)
+	cd ../gen && go run . -model $(MODEL) -root "github.com/cms-lab-core/cms-labs-api/pnetlabaddon" -directory $(CUR_DIR) && cd $(CUR_DIR)

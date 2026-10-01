@@ -1,10 +1,10 @@
-# Перенос в github.com/maintainer64/cms-labs-api
+# Перенос в github.com/cms-lab-core/cms-labs-api
 
 Код подготовлен к GitHub: Go module paths, badge/link targets, CI, kind E2E, CodeQL, Dependabot и GHCR больше не зависят от GitLab.
 
 ## 1. Создать и отправить репозиторий
 
-Создайте пустой repository `maintainer64/cms-labs-api` без автоматически добавленного README. Локальный clone уже настроен на HTTPS remote и ветку `main`; для первой отправки достаточно:
+Создайте пустой repository `cms-lab-core/cms-labs-api` без автоматически добавленного README. Локальный clone уже настроен на HTTPS remote и ветку `main`; для первой отправки достаточно:
 
 ```bash
 git push -u origin main
@@ -26,7 +26,7 @@ AI review можно подключить позже отдельным GitHub A
 
 ## 3. Настроить GHCR
 
-Первый push в `main`, `pre` или `stage` создаст три container packages. Git tag `vX.Y.Z` дополнительно опубликует OCI Helm chart `ghcr.io/maintainer64/cms-labs-api/charts/universal-chart:X.Y.Z`. В каждом package откройте Package settings и включите `Inherit access from source repository`. Для кластеров без GHCR credentials выставьте Public visibility; для private packages создайте Kubernetes `imagePullSecret` и выполните `helm registry login` перед pull private chart.
+Первый push в `main`, `pre` или `stage` создаст три container packages. Git tag `vX.Y.Z` дополнительно опубликует OCI Helm chart `ghcr.io/cms-lab-core/cms-labs-api/charts/universal-chart:X.Y.Z`. В каждом package откройте Package settings и включите `Inherit access from source repository`. Для кластеров без GHCR credentials выставьте Public visibility; для private packages создайте Kubernetes `imagePullSecret` и выполните `helm registry login` перед pull private chart.
 
 ## 4. Проверить миграцию
 

@@ -5,8 +5,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/maintainer64/cms-labs-api/clabgate/app/queries"
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
 	"github.com/rs/zerolog"
 )
 

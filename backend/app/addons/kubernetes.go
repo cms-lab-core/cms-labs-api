@@ -5,14 +5,14 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/app/addons/vault"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases/auth"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/shared/connection"
+	"github.com/cms-lab-core/cms-labs-api/shared/k8s_utils"
 	"github.com/google/uuid"
-	"github.com/maintainer64/cms-labs-api/backend/app/addons/vault"
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/backend/app/queries"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases/auth"
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
-	"github.com/maintainer64/cms-labs-api/shared/connection"
-	"github.com/maintainer64/cms-labs-api/shared/k8s_utils"
 )
 
 const ExpireServiceDuration = time.Duration(87600) * time.Hour // 10 лет

@@ -1,8 +1,8 @@
 package di
 
 import (
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/app/usecases"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/app/usecases"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 )
 
 func (di *DIContainer) SSOSecondFactorUC() *usecases.SSOSecondFactorUC {

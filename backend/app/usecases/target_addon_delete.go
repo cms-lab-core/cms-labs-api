@@ -3,11 +3,11 @@ package usecases
 import (
 	"context"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/app/addons"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
 	"github.com/goccy/go-json"
-	"github.com/maintainer64/cms-labs-api/backend/app/addons"
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/backend/app/queries"
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
 )
 
 // TargetAddonDeleteUC – отключение дополнения от цели

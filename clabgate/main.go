@@ -6,16 +6,16 @@ import (
 	"os"
 	"time"
 
+	"github.com/cms-lab-core/cms-labs-api/clabgate/app/di"
+	_ "github.com/cms-lab-core/cms-labs-api/clabgate/docs" // load API Docs files (Swagger)
+	"github.com/cms-lab-core/cms-labs-api/clabgate/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/pkg/kubeconfig"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/pkg/middleware"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/pkg/routes"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/pkg/utils"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 	fiber "github.com/gofiber/fiber/v2"
 	_ "github.com/joho/godotenv/autoload" // load .env file automatically
-	"github.com/maintainer64/cms-labs-api/clabgate/app/di"
-	_ "github.com/maintainer64/cms-labs-api/clabgate/docs" // load API Docs files (Swagger)
-	"github.com/maintainer64/cms-labs-api/clabgate/pkg/configs"
-	"github.com/maintainer64/cms-labs-api/clabgate/pkg/kubeconfig"
-	"github.com/maintainer64/cms-labs-api/clabgate/pkg/middleware"
-	"github.com/maintainer64/cms-labs-api/clabgate/pkg/routes"
-	"github.com/maintainer64/cms-labs-api/clabgate/pkg/utils"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/leaderelection"

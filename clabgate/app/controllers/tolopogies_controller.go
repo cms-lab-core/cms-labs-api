@@ -1,11 +1,11 @@
 package controllers
 
 import (
-	"github.com/maintainer64/cms-labs-api/clabgate/app/di"
-	"github.com/maintainer64/cms-labs-api/clabgate/app/usecases"
-	"github.com/maintainer64/cms-labs-api/clabgate/app/usecases/auth"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/app/di"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/app/usecases"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/app/usecases/auth"
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 )
 
 // TopologyGet func for view of list tasks.

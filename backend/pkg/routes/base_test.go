@@ -12,20 +12,20 @@ import (
 	resty "github.com/go-resty/resty/v2"
 	"github.com/h2non/gock"
 
-	"github.com/maintainer64/cms-labs-api/shared/logs"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 
 	json "github.com/goccy/go-json"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/app/addons/vault"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/di"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/configs"
 	"github.com/google/uuid"
-	"github.com/maintainer64/cms-labs-api/backend/app/addons/vault"
-	"github.com/maintainer64/cms-labs-api/backend/app/di"
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/backend/pkg/configs"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/middleware"
+	"github.com/cms-lab-core/cms-labs-api/backend/platform/database"
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
-	"github.com/maintainer64/cms-labs-api/backend/pkg/middleware"
-	"github.com/maintainer64/cms-labs-api/backend/platform/database"
 	"gorm.io/gorm"
 )
 

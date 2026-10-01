@@ -2,11 +2,11 @@ apiVersion: v2
 description: Nixys universal Helm chart for deploy your apps to Kubernetes
 name: universal-chart
 version: 2.8.1
-home: https://github.com/maintainer64/cms-labs-api
+home: https://github.com/cms-lab-core/cms-labs-api
 sources:
-  - https://github.com/maintainer64/cms-labs-api/tree/main/k8s/base-chart
+  - https://github.com/cms-lab-core/cms-labs-api/tree/main/k8s/base-chart
 annotations:
-  org.opencontainers.image.source: https://github.com/maintainer64/cms-labs-api
+  org.opencontainers.image.source: https://github.com/cms-lab-core/cms-labs-api
   org.opencontainers.image.description: Reusable deployment chart used by CMS Labs services
 maintainers:
 - name: Roman Andreev

@@ -3,9 +3,9 @@ package di
 import (
 	"time"
 
-	"github.com/maintainer64/cms-labs-api/clabgate/app/usecases"
-	"github.com/maintainer64/cms-labs-api/clabgate/pkg/configs"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/app/usecases"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 )
 
 func (di *DIContainer) TopologiesGetUC() (*usecases.TopologiesGetUC, error) {

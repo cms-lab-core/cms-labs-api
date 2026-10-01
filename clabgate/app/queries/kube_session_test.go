@@ -200,7 +200,7 @@ func TestReadySessionUsesRepositoryBranchForNBGitPuller(t *testing.T) {
 			},
 			Annotations: map[string]string{
 				SessionAttemptAnnotation:      "00000000-0000-0000-0000-000000000000",
-				SessionTaskRepoAnnotation:     "https://github.com/maintainer64/cms-labs-simple-task",
+				SessionTaskRepoAnnotation:     "https://github.com/cms-lab-core/cms-labs-simple-task",
 				SessionTaskRefAnnotation:      "main",
 				SessionTaskRevisionAnnotation: "d3136b13c7ae361eda4eaf16efd93d666b9bff0a",
 				SessionTopologyAnnotation:     "false",

@@ -1,9 +1,9 @@
 package middleware
 
 import (
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases/auth"
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
 	fiber "github.com/gofiber/fiber/v2"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases/auth"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
 )
 
 // NewJWTMiddleware создаёт middleware для извлечения и проверки JWT токена без ошибок

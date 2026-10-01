@@ -8,8 +8,8 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/addons/vault"
-	"github.com/maintainer64/cms-labs-api/shared/connection"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/addons/vault"
+	"github.com/cms-lab-core/cms-labs-api/shared/connection"
 
 	_ "github.com/go-sql-driver/mysql"
 )

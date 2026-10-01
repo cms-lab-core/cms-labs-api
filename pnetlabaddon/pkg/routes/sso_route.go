@@ -1,8 +1,8 @@
 package routes
 
 import (
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/app/controllers"
 	fiber "github.com/gofiber/fiber/v2"
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/app/controllers"
 )
 
 // V1SSORoute func for describe group of openid protocol auth.

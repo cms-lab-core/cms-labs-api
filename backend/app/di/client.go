@@ -1,10 +1,10 @@
 package di
 
 import (
+	"github.com/cms-lab-core/cms-labs-api/backend/app/addons/vault"
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 	resty "github.com/go-resty/resty/v2"
-	"github.com/maintainer64/cms-labs-api/backend/app/addons/vault"
-	"github.com/maintainer64/cms-labs-api/backend/pkg/configs"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
 )
 
 var (

@@ -4,9 +4,9 @@ import (
 	"errors"
 	"strings"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/queries"
-	"github.com/maintainer64/cms-labs-api/backend/pkg/configs"
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
 )
 
 // ErrLabCatalogDisabled is returned when the catalog is used while

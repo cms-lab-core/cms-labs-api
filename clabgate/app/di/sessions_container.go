@@ -3,12 +3,12 @@ package di
 import (
 	"time"
 
+	"github.com/cms-lab-core/cms-labs-api/clabgate/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/app/usecases"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 	resty "github.com/go-resty/resty/v2"
-	"github.com/maintainer64/cms-labs-api/clabgate/app/queries"
-	"github.com/maintainer64/cms-labs-api/clabgate/app/usecases"
-	"github.com/maintainer64/cms-labs-api/clabgate/pkg/configs"
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
 )
 
 func (di *DIContainer) SessionsUC() (*usecases.SessionsUC, error) {

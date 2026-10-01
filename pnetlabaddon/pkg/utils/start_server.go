@@ -5,10 +5,10 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/maintainer64/cms-labs-api/shared/scheduler"
+	"github.com/cms-lab-core/cms-labs-api/shared/scheduler"
 
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/pkg/configs"
-	"github.com/maintainer64/cms-labs-api/shared/connection"
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/shared/connection"
 
 	fiber "github.com/gofiber/fiber/v2"
 )

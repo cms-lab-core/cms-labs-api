@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/backend/app/queries"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases/tasks"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases/tasks"
 	"github.com/rs/zerolog/log"
 	"gorm.io/datatypes"
 	"gorm.io/gorm"

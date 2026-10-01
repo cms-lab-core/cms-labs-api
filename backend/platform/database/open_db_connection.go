@@ -1,14 +1,14 @@
 package database
 
 import (
-	"github.com/maintainer64/cms-labs-api/backend/pkg/configs"
-	"github.com/maintainer64/cms-labs-api/shared/connection"
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/shared/connection"
 	"github.com/rs/zerolog"
 
 	"gorm.io/gorm"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/queries"
-	"github.com/maintainer64/cms-labs-api/backend/app/queries/lti_query"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/queries/lti_query"
 )
 
 // Queries struct for collect all app queries.

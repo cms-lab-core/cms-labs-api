@@ -11,8 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/addons/vault"
-	"github.com/maintainer64/cms-labs-api/shared/connection"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/addons/vault"
+	"github.com/cms-lab-core/cms-labs-api/shared/connection"
 )
 
 func TestHarborAddonService_GetType(t *testing.T) {

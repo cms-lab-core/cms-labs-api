@@ -1,7 +1,7 @@
 package di
 
 import (
-	"github.com/maintainer64/cms-labs-api/clabgate/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/app/queries"
 )
 
 func (di *DIContainer) KubernetesAdmin() (*queries.KubernetesAdminQuery, error) {

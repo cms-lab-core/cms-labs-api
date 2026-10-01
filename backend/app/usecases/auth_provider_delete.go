@@ -1,7 +1,7 @@
 package usecases
 
 import (
-	"github.com/maintainer64/cms-labs-api/backend/app/queries/lti_query"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/queries/lti_query"
 )
 
 type AuthProviderDeleteUC struct {

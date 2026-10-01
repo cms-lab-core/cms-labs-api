@@ -1,8 +1,8 @@
 package usecases
 
 import (
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/backend/app/queries/lti_query"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/queries/lti_query"
 )
 
 type AuthProviderEditUC struct {

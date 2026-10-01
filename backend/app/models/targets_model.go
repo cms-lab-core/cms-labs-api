@@ -3,8 +3,8 @@ package models
 import (
 	"time"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/models/types"
-	"github.com/maintainer64/cms-labs-api/shared/connection"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models/types"
+	"github.com/cms-lab-core/cms-labs-api/shared/connection"
 	"gorm.io/datatypes"
 )
 

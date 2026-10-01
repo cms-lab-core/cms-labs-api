@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/maintainer64/cms-labs-api/shared/connection"
+	"github.com/cms-lab-core/cms-labs-api/shared/connection"
 	"github.com/rs/zerolog/log"
 )
 

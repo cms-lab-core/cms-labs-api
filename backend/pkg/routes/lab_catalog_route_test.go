@@ -3,10 +3,10 @@ package routes
 import (
 	"testing"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/configs"
 	json "github.com/goccy/go-json"
 	"github.com/google/uuid"
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/backend/pkg/configs"
 )
 
 func TestLabCatalogListAndIdempotentStart(t *testing.T) {

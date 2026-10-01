@@ -1,11 +1,11 @@
 package controllers
 
 import (
-	"github.com/maintainer64/cms-labs-api/backend/app/di"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases/auth"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/di"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases/auth"
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 )
 
 func LabCatalogList(c *jsonrpc.Ctx) (interface{}, error) {

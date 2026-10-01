@@ -9,7 +9,7 @@
 Шаблон [Create Go App CLI](https://github.com/create-go-app/cli)
 
 <img src="https://img.shields.io/badge/Go-1.19+-00ADD8?style=for-the-badge&logo=go" alt="go version" />
-&nbsp;<a href="https://goreportcard.com/report/github.com/maintainer64/cms-labs-api/backend" target="_blank"><img src="https://img.shields.io/badge/Go_report-A+-success?style=for-the-badge&logo=none" alt="go report" /></a>
+&nbsp;<a href="https://goreportcard.com/report/github.com/cms-lab-core/cms-labs-api/backend" target="_blank"><img src="https://img.shields.io/badge/Go_report-A+-success?style=for-the-badge&logo=none" alt="go report" /></a>
 &nbsp;<img src="https://img.shields.io/badge/license-Apache_2.0-red?style=for-the-badge&logo=none" alt="license" />
 
 ## ⚡️ Быстрый старт

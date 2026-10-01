@@ -3,12 +3,12 @@ package controllers
 import (
 	"time"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/app/di"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases/auth"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 	fiber "github.com/gofiber/fiber/v2"
-	"github.com/maintainer64/cms-labs-api/backend/app/di"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases/auth"
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
 )
 
 // UserTokenRefresh method for renew access and refresh tokens.

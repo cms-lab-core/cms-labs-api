@@ -7,9 +7,9 @@ import (
 
 	"github.com/gofiber/fiber/v2"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models/types"
 	"github.com/google/uuid"
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/backend/app/models/types"
 	"github.com/stretchr/testify/assert"
 )
 

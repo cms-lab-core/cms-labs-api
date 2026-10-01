@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"testing"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases"
 	json "github.com/goccy/go-json"
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases"
 	"github.com/stretchr/testify/assert"
 )
 

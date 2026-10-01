@@ -2,16 +2,16 @@
 package main
 
 import (
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/app/di"
+	_ "github.com/cms-lab-core/cms-labs-api/pnetlabaddon/docs" // load API Docs files (Swagger)
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/pkg/middleware"
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/pkg/routes"
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/pkg/utils"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
+	"github.com/cms-lab-core/cms-labs-api/shared/scheduler"
 	fiber "github.com/gofiber/fiber/v2"
 	_ "github.com/joho/godotenv/autoload" // load .env file automatically
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/app/di"
-	_ "github.com/maintainer64/cms-labs-api/pnetlabaddon/docs" // load API Docs files (Swagger)
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/pkg/configs"
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/pkg/middleware"
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/pkg/routes"
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/pkg/utils"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
-	"github.com/maintainer64/cms-labs-api/shared/scheduler"
 )
 
 // @title API

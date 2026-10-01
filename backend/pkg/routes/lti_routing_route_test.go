@@ -8,10 +8,10 @@ import (
 	json "github.com/goccy/go-json"
 	"github.com/stretchr/testify/assert"
 
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases"
 )
 
 func TestV1LTIRoutingCreate(t *testing.T) {

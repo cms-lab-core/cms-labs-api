@@ -1,13 +1,13 @@
 package database
 
 import (
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/pkg/configs"
-	"github.com/maintainer64/cms-labs-api/shared/connection"
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/shared/connection"
 	"github.com/rs/zerolog"
 
 	"gorm.io/gorm"
 
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/app/queries"
 )
 
 // Queries struct for collect all app queries.

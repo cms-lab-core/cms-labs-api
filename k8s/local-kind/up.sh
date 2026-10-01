@@ -7,7 +7,7 @@ context="kind-$cluster_name"
 state_dir=${CMS_LABS_DEV_STATE_DIR:-$repo_root/.local}
 kubeconfig="$state_dir/kubeconfig"
 node_image=${KIND_NODE_IMAGE:-kindest/node:v1.33.12@sha256:3f5c8443c620245e4d355cfe09e96a91ead32ceaa569d3f1ca9edf0cb2fe2ff4}
-chart=${CLABERNETES_CHART:-oci://ghcr.io/maintainer64/cms-labs-clabernetes/clabernetes}
+chart=${CLABERNETES_CHART:-oci://ghcr.io/cms-lab-core/cms-labs-clabernetes/clabernetes}
 chart_version=${CLABERNETES_CHART_VERSION:-0.8.0-4}
 dev_mode=false
 

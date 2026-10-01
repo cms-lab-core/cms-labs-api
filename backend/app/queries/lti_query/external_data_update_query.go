@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/queries"
 	json "github.com/goccy/go-json"
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/backend/app/queries"
 	"github.com/ory/go-convenience/mapx"
 	"github.com/ory/go-convenience/stringsx"
 	"github.com/rs/zerolog"

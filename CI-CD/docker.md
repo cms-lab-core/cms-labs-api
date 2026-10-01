@@ -45,7 +45,7 @@ services:
   core-backend:
     platform: linux/x86_64
     container_name: core-backend
-    image: ghcr.io/maintainer64/cms-labs-api/backend:${VERSION}
+    image: ghcr.io/cms-lab-core/cms-labs-api/backend:${VERSION}
     networks:
       - cms-net
     environment:
@@ -91,7 +91,7 @@ services:
   clabgate:
     platform: linux/x86_64
     container_name: clabgate
-    image: ghcr.io/maintainer64/cms-labs-api/clabgate:${VERSION}
+    image: ghcr.io/cms-lab-core/cms-labs-api/clabgate:${VERSION}
     networks:
       - cms-net
     environment:
@@ -149,7 +149,7 @@ services:
   core-frontend:
     platform: linux/x86_64
     container_name: core-frontend
-    image: ghcr.io/maintainer64/cms-labs-api/frontend:${VERSION}
+    image: ghcr.io/cms-lab-core/cms-labs-api/frontend:${VERSION}
     networks:
       - cms-net
     ports:

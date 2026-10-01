@@ -1,7 +1,7 @@
 package server_queue
 
 import (
-	"github.com/maintainer64/cms-labs-api/backend/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/queries"
 	"github.com/rs/zerolog"
 )
 

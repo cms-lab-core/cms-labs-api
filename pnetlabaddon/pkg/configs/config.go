@@ -5,10 +5,10 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/maintainer64/cms-labs-api/shared/connection"
+	"github.com/cms-lab-core/cms-labs-api/shared/connection"
 
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
-	"github.com/maintainer64/cms-labs-api/shared/guacamole_client"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/shared/guacamole_client"
 )
 
 type ServerConfig struct {

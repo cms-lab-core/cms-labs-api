@@ -5,11 +5,11 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases/auth"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
 	json "github.com/goccy/go-json"
 	"github.com/google/uuid"
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases/auth"
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
 	"github.com/stretchr/testify/assert"
 )
 

@@ -1,9 +1,9 @@
 package routes
 
 import (
+	"github.com/cms-lab-core/cms-labs-api/backend/app/controllers"
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
 	fiber "github.com/gofiber/fiber/v2"
-	"github.com/maintainer64/cms-labs-api/backend/app/controllers"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
 )
 
 // V1RpcRoute func for describe group of jsonrpc 2.0 protocol.

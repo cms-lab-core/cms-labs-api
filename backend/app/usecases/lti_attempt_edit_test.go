@@ -3,7 +3,7 @@ package usecases
 import (
 	"testing"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
 )
 
 func TestApplyLTIAttemptEditPreservesServerWhenOmitted(t *testing.T) {

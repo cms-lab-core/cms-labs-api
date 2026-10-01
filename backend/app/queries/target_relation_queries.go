@@ -7,7 +7,7 @@ import (
 	"github.com/rs/zerolog"
 	"gorm.io/gorm"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
 )
 
 type TargetRelationQueries struct {

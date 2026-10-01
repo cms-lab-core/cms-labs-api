@@ -4,7 +4,7 @@ import (
 	"os"
 	"strconv"
 
-	"github.com/maintainer64/cms-labs-api/shared/connection"
+	"github.com/cms-lab-core/cms-labs-api/shared/connection"
 )
 
 type AppConfigModel struct {

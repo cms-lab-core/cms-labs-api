@@ -7,9 +7,9 @@ import (
 	"net/url"
 	"time"
 
-	"github.com/maintainer64/cms-labs-api/clabgate/app/queries"
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
 	"github.com/rs/zerolog"
 	"gopkg.in/yaml.v3"
 )

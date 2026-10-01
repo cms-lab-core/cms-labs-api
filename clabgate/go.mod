@@ -1,8 +1,8 @@
-module github.com/maintainer64/cms-labs-api/clabgate
+module github.com/cms-lab-core/cms-labs-api/clabgate
 
 go 1.24.4
 
-replace github.com/maintainer64/cms-labs-api/shared => ../shared
+replace github.com/cms-lab-core/cms-labs-api/shared => ../shared
 
 require (
 	github.com/go-resty/resty/v2 v2.16.5
@@ -12,7 +12,7 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
-	github.com/maintainer64/cms-labs-api/shared v0.0.0-00010101000000-000000000000
+	github.com/cms-lab-core/cms-labs-api/shared v0.0.0-00010101000000-000000000000
 	github.com/rs/zerolog v1.33.0
 	github.com/stretchr/testify v1.10.0
 	github.com/swaggo/swag v1.16.3

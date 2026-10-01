@@ -1,10 +1,10 @@
 package di
 
 import (
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/shared/guacamole_client"
 	resty "github.com/go-resty/resty/v2"
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/pkg/configs"
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
-	"github.com/maintainer64/cms-labs-api/shared/guacamole_client"
 )
 
 var (

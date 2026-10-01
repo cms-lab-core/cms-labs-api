@@ -12,8 +12,8 @@ import (
 
 	"github.com/goccy/go-json"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/addons/vault"
-	"github.com/maintainer64/cms-labs-api/shared/connection"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/addons/vault"
+	"github.com/cms-lab-core/cms-labs-api/shared/connection"
 )
 
 // HarborConfig contains the parameters for Harbor integration.

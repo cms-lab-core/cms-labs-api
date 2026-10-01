@@ -11,7 +11,7 @@ import (
 	"fmt"
 	"net/url"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
 )
 
 // FindRegistrationByIssuerAndClientID retrieves a registration from the SQL database.

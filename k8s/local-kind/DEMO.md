@@ -35,7 +35,7 @@ database and never reads the JSON file at request time.
       "id": 1,
       "name": "Пример задания: SSH и SNMP",
       "description": "Настройка Linux-based сетевых узлов с автоматической проверкой результата.",
-      "labs_path": "https://github.com/maintainer64/cms-labs-simple-task.git#main",
+      "labs_path": "https://github.com/cms-lab-core/cms-labs-simple-task.git#main",
       "test_path": "sdn_lab_5"
     }
   ]

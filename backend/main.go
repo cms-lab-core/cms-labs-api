@@ -5,15 +5,15 @@ import (
 	"flag"
 	"fmt"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/app/di"
+	_ "github.com/cms-lab-core/cms-labs-api/backend/docs" // load API Docs files (Swagger)
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/middleware"
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/routes"
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/utils"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 	fiber "github.com/gofiber/fiber/v2"
 	_ "github.com/joho/godotenv/autoload" // load .env file automatically
-	"github.com/maintainer64/cms-labs-api/backend/app/di"
-	_ "github.com/maintainer64/cms-labs-api/backend/docs" // load API Docs files (Swagger)
-	"github.com/maintainer64/cms-labs-api/backend/pkg/configs"
-	"github.com/maintainer64/cms-labs-api/backend/pkg/middleware"
-	"github.com/maintainer64/cms-labs-api/backend/pkg/routes"
-	"github.com/maintainer64/cms-labs-api/backend/pkg/utils"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
 )
 
 // @title API

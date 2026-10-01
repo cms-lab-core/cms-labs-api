@@ -141,7 +141,7 @@ Kubernetes termination-message limit:
 
 `tasks` опционален, поэтому старые checker images остаются совместимыми. Новые checker images и отдельные реализации
 лабораторных находятся в репозитории [
-`github.com/maintainer64/cms-labs-checker`](https://github.com/maintainer64/cms-labs-checker). `TEST_PATH` выбирает
+`github.com/cms-lab-core/cms-labs-checker`](https://github.com/cms-lab-core/cms-labs-checker). `TEST_PATH` выбирает
 зарегистрированный пакет проверки, а при пустом значении используется basename `LAB_PATH`.
 
 Последний Job остаётся доступен через `session.get`: UI получает его состояние, баллы, `report`, структурированные
@@ -164,7 +164,7 @@ Reconciler валидирует диапазон оценки, добавляе�
 | `CMS_TASK_BRANCH`                        | Git branch каталога, `main`; манифесты при запуске закрепляются на resolved commit SHA                               |
 | `TASK_REPOSITORY_TOKEN`                  | optional token для private GitLab/GitHub repository                                                                  |
 | `GITLAB_TOKEN`                           | legacy fallback для `TASK_REPOSITORY_TOKEN` на время миграции                                                        |
-| `JUPYTER_IMAGE`                          | standalone notebook image со `start-notebook.py`; production default — `ghcr.io/maintainer64/cms-labs-jupyter:1.0.0` |
+| `JUPYTER_IMAGE`                          | standalone notebook image со `start-notebook.py`; production default — `ghcr.io/cms-lab-core/cms-labs-jupyter:1.0.0` |
 | `JUPYTER_STORAGE_SIZE`                   | размер PVC, `1Gi`                                                                                                    |
 | `WORKSPACE_PROXY_PREFIX`                 | URL prefix Jupyter, `/clabgate/workspace`                                                                            |
 | `WORKSPACE_AUTH_SECRET`                  | общий для replicas HMAC secret, минимум 32 байта; обязателен для `session.open`                                      |

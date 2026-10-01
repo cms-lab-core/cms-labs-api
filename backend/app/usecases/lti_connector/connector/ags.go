@@ -14,8 +14,8 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
 	json "github.com/goccy/go-json"
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
 )
 
 // AGS implements Assignment & Grades Services functions.

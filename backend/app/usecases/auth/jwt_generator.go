@@ -7,9 +7,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
 
-	"github.com/maintainer64/cms-labs-api/backend/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/configs"
 
 	jwt "github.com/golang-jwt/jwt/v5"
 )

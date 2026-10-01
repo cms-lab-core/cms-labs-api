@@ -3,4 +3,4 @@ Description: PNET lab addon SSO server
 Version: 1.0
 Priority: optional
 Architecture: amd64
-Maintainer: maintainer64 https://github.com/maintainer64
+Maintainer: cms-lab-core https://github.com/cms-lab-core

@@ -12,8 +12,8 @@ import (
 
 	fiber "github.com/gofiber/fiber/v2"
 
+	datastore "github.com/cms-lab-core/cms-labs-api/backend/app/queries/lti_query"
 	"github.com/google/uuid"
-	datastore "github.com/maintainer64/cms-labs-api/backend/app/queries/lti_query"
 )
 
 const (

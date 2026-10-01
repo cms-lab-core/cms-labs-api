@@ -3,9 +3,9 @@ package auth
 import (
 	"errors"
 
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/queries"
 	"golang.org/x/crypto/bcrypt"
 )
 

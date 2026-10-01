@@ -1,8 +1,8 @@
 package routes
 
 import (
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
 	fiber "github.com/gofiber/fiber/v2"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
 )
 
 func FiberRoutes(app *fiber.App) {

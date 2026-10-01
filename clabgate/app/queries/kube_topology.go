@@ -5,8 +5,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/maintainer64/cms-labs-api/clabgate/pkg/kubeconfig"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/pkg/kubeconfig"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 	"github.com/rs/zerolog"
 	"gopkg.in/yaml.v3"
 	corev1 "k8s.io/api/core/v1"

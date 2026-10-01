@@ -1,10 +1,10 @@
 package controllers
 
 import (
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/app/di"
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 	fiber "github.com/gofiber/fiber/v2"
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/app/di"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
 )
 
 // PNETServerPing Пинг в core-backend для синхронизации попыток.

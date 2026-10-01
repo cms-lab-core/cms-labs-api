@@ -5,13 +5,13 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/app/addons"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/addons/vault"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/shared/connection"
+	"github.com/cms-lab-core/cms-labs-api/shared/k8s_utils"
 	"github.com/goccy/go-json"
-	"github.com/maintainer64/cms-labs-api/backend/app/addons"
-	"github.com/maintainer64/cms-labs-api/backend/app/addons/vault"
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/backend/app/queries"
-	"github.com/maintainer64/cms-labs-api/shared/connection"
-	"github.com/maintainer64/cms-labs-api/shared/k8s_utils"
 	"github.com/rs/zerolog"
 )
 

@@ -4,9 +4,9 @@ package logs
 import (
 	"strings"
 
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
 	"github.com/gofiber/contrib/fiberzerolog"
 	fiber "github.com/gofiber/fiber/v2"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
 )
 
 func NewFiberZerologLogger() fiber.Handler {

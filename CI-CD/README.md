@@ -18,9 +18,9 @@ E2E не использует production kubeconfig: кластер `kind` со�
 Workflow `Container images` проверяет Docker build в pull request и после push публикует в GHCR:
 
 ```text
-ghcr.io/maintainer64/cms-labs-api/backend
-ghcr.io/maintainer64/cms-labs-api/clabgate
-ghcr.io/maintainer64/cms-labs-api/frontend
+ghcr.io/cms-lab-core/cms-labs-api/backend
+ghcr.io/cms-lab-core/cms-labs-api/clabgate
+ghcr.io/cms-lab-core/cms-labs-api/frontend
 ```
 
 Для каждой ветки создаётся одноимённый tag (`main`, `pre`, `stage`), для каждого commit — `sha-<short-sha>`, для Git tag `v1.2.3` — `v1.2.3`. Default branch также получает `latest`. Вместе с опубликованными образами BuildKit генерирует provenance и SBOM.
@@ -32,9 +32,9 @@ Workflow использует стандартный `GITHUB_TOKEN`; отдел�
 При push Git tag `vX.Y.Z` workflow `Helm OCI chart` проверяет, упаковывает и публикует `k8s/base-chart` с той же SemVer-версией:
 
 ```bash
-helm pull oci://ghcr.io/maintainer64/cms-labs-api/charts/universal-chart --version X.Y.Z
+helm pull oci://ghcr.io/cms-lab-core/cms-labs-api/charts/universal-chart --version X.Y.Z
 helm upgrade --install core-backend \
-  oci://ghcr.io/maintainer64/cms-labs-api/charts/universal-chart \
+  oci://ghcr.io/cms-lab-core/cms-labs-api/charts/universal-chart \
   --version X.Y.Z \
   --values k8s/values/_common/_common.yaml \
   --values k8s/values/_common/core-backend-values.yaml \

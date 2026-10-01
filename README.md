@@ -1,31 +1,31 @@
 # CMS Labs API
 
-[![CI](https://github.com/maintainer64/cms-labs-api/actions/workflows/ci.yml/badge.svg)](https://github.com/maintainer64/cms-labs-api/actions/workflows/ci.yml)
-[![Kubernetes E2E](https://github.com/maintainer64/cms-labs-api/actions/workflows/e2e.yml/badge.svg)](https://github.com/maintainer64/cms-labs-api/actions/workflows/e2e.yml)
-[![CodeQL](https://github.com/maintainer64/cms-labs-api/actions/workflows/codeql.yml/badge.svg)](https://github.com/maintainer64/cms-labs-api/actions/workflows/codeql.yml)
-[![Container images](https://github.com/maintainer64/cms-labs-api/actions/workflows/images.yml/badge.svg)](https://github.com/maintainer64/cms-labs-api/actions/workflows/images.yml)
-[![Helm OCI chart](https://github.com/maintainer64/cms-labs-api/actions/workflows/helm-chart.yml/badge.svg)](https://github.com/maintainer64/cms-labs-api/actions/workflows/helm-chart.yml)
+[![CI](https://github.com/cms-lab-core/cms-labs-api/actions/workflows/ci.yml/badge.svg)](https://github.com/cms-lab-core/cms-labs-api/actions/workflows/ci.yml)
+[![Kubernetes E2E](https://github.com/cms-lab-core/cms-labs-api/actions/workflows/e2e.yml/badge.svg)](https://github.com/cms-lab-core/cms-labs-api/actions/workflows/e2e.yml)
+[![CodeQL](https://github.com/cms-lab-core/cms-labs-api/actions/workflows/codeql.yml/badge.svg)](https://github.com/cms-lab-core/cms-labs-api/actions/workflows/codeql.yml)
+[![Container images](https://github.com/cms-lab-core/cms-labs-api/actions/workflows/images.yml/badge.svg)](https://github.com/cms-lab-core/cms-labs-api/actions/workflows/images.yml)
+[![Helm OCI chart](https://github.com/cms-lab-core/cms-labs-api/actions/workflows/helm-chart.yml/badge.svg)](https://github.com/cms-lab-core/cms-labs-api/actions/workflows/helm-chart.yml)
 
 Монорепозиторий CMS Labs: Go backend, Clabgate, PNETLab addon, frontend и Kubernetes-конфигурация.
-Основной адрес проекта: <https://github.com/maintainer64/cms-labs-api>.
+Основной адрес проекта: <https://github.com/cms-lab-core/cms-labs-api>.
 
 Контейнеры публикуются в GitHub Container Registry:
 
-- `ghcr.io/maintainer64/cms-labs-api/backend`;
-- `ghcr.io/maintainer64/cms-labs-api/clabgate`;
-- `ghcr.io/maintainer64/cms-labs-api/frontend`.
+- `ghcr.io/cms-lab-core/cms-labs-api/backend`;
+- `ghcr.io/cms-lab-core/cms-labs-api/clabgate`;
+- `ghcr.io/cms-lab-core/cms-labs-api/frontend`.
 
 Стабильный контур `v1.1.3` использует эти образы с тегом `1.1.3`, standalone Jupyter `1.0.0`, checker `1.0.1` и OCI chart форка Clabernetes `0.8.0-4`. Mutable-тег `latest` остаётся только каналом разработки.
 
 Проверки лабораторных изолированы в отдельном Go-репозитории
-[`cms-labs-checker`](https://github.com/maintainer64/cms-labs-checker). Он
-публикует единый образ `ghcr.io/maintainer64/cms-labs-checker`, внутри которого
+[`cms-labs-checker`](https://github.com/cms-lab-core/cms-labs-checker). Он
+публикует единый образ `ghcr.io/cms-lab-core/cms-labs-checker`, внутри которого
 каждая лабораторная имеет собственный пакет и unit-тесты.
 
 Переиспользуемый Helm chart публикуется при Git tag `vX.Y.Z`:
 
 ```bash
-helm pull oci://ghcr.io/maintainer64/cms-labs-api/charts/universal-chart --version X.Y.Z
+helm pull oci://ghcr.io/cms-lab-core/cms-labs-api/charts/universal-chart --version X.Y.Z
 ```
 
 ## CI/CD

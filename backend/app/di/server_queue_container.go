@@ -1,8 +1,8 @@
 package di
 
 import (
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases/server_queue"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases/server_queue"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 )
 
 func (di *DIContainer) ServerChangeDistributionUC() *server_queue.ServerQueueUpsert {

@@ -3,7 +3,7 @@ set -euo pipefail
 
 package_version=latest
 package_name=pnetlabaddon.deb
-repository=maintainer64/cms-labs-api
+repository=cms-lab-core/cms-labs-api
 api_url=https://api.github.com
 
 while [[ $# -gt 0 ]]; do

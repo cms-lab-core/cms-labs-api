@@ -3,9 +3,9 @@ package tasks
 import (
 	"time"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/queries"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases/lti_connector"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases/lti_connector/connector"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases/lti_connector"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases/lti_connector/connector"
 	"github.com/rs/zerolog"
 )
 

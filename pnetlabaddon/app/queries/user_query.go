@@ -3,7 +3,7 @@ package queries
 import (
 	"errors"
 
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/app/models"
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/app/models"
 	"gorm.io/gorm"
 )
 

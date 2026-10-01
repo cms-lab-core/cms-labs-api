@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models/types"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases"
 	json "github.com/goccy/go-json"
 	"github.com/google/uuid"
 	"github.com/h2non/gock"
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/backend/app/models/types"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases"
 	"github.com/stretchr/testify/assert"
 )
 

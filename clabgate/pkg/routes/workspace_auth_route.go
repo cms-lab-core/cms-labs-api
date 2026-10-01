@@ -5,9 +5,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cms-lab-core/cms-labs-api/clabgate/app/usecases"
+	"github.com/cms-lab-core/cms-labs-api/clabgate/pkg/configs"
 	"github.com/gofiber/fiber/v2"
-	"github.com/maintainer64/cms-labs-api/clabgate/app/usecases"
-	"github.com/maintainer64/cms-labs-api/clabgate/pkg/configs"
 )
 
 func WorkspaceAuthRoutes(app *fiber.App) {

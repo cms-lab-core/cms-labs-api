@@ -8,7 +8,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
 	"github.com/rs/zerolog"
 	"gorm.io/gorm"
 )
@@ -51,7 +51,7 @@ func DefaultDemoCatalog() DemoCatalog {
 		ID:          DemoDefaultRoutingID,
 		Name:        "Simple Task Demo",
 		Description: "Пример задания по автоматизации SSH и мониторингу SNMP",
-		LabsPath:    "https://github.com/maintainer64/cms-labs-simple-task.git#main",
+		LabsPath:    "https://github.com/cms-lab-core/cms-labs-simple-task.git#main",
 		TestPath:    "sdn_lab_5",
 	}}}
 }

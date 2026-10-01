@@ -4,10 +4,10 @@ import (
 	"context"
 	"strings"
 
+	"github.com/cms-lab-core/cms-labs-api/clabgate/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
 	resty "github.com/go-resty/resty/v2"
-	"github.com/maintainer64/cms-labs-api/clabgate/pkg/configs"
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
 )
 
 type userInfoProvider interface {

@@ -1,8 +1,8 @@
-module github.com/maintainer64/cms-labs-api/backend
+module github.com/cms-lab-core/cms-labs-api/backend
 
 go 1.24.4
 
-replace github.com/maintainer64/cms-labs-api/shared => ../shared
+replace github.com/cms-lab-core/cms-labs-api/shared => ../shared
 
 require (
 	ariga.io/atlas-provider-gorm v0.5.0
@@ -24,7 +24,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/swaggo/swag v1.16.3
 	github.com/thoas/go-funk v0.9.3
-	github.com/maintainer64/cms-labs-api/shared v0.0.0-00010101000000-000000000000
+	github.com/cms-lab-core/cms-labs-api/shared v0.0.0-00010101000000-000000000000
 	golang.org/x/crypto v0.40.0
 	gorm.io/datatypes v1.2.7
 	gorm.io/driver/mysql v1.6.0

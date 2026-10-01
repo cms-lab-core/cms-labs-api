@@ -1,8 +1,8 @@
 package cms_client
 
 import (
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
 	jwt "github.com/golang-jwt/jwt/v5"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
 )
 
 func SSOTokenGetStringSlice(claims map[string]interface{}, key string) []string {

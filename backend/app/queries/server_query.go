@@ -12,8 +12,8 @@ import (
 	"github.com/ory/go-convenience/stringsx"
 	"golang.org/x/crypto/bcrypt"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
 	"gorm.io/gorm"
 )
 

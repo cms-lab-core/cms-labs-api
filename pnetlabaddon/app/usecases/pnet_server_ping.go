@@ -5,8 +5,8 @@ import (
 
 	"github.com/rs/zerolog/log"
 
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/app/queries"
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
 	"github.com/rs/zerolog"
 )
 

@@ -3,13 +3,13 @@ package usecases
 import (
 	"context"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/app/addons"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models/types"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/queries"
+	"github.com/cms-lab-core/cms-labs-api/shared/cms_client"
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
 	"github.com/goccy/go-json"
-	"github.com/maintainer64/cms-labs-api/backend/app/addons"
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
-	"github.com/maintainer64/cms-labs-api/backend/app/models/types"
-	"github.com/maintainer64/cms-labs-api/backend/app/queries"
-	"github.com/maintainer64/cms-labs-api/shared/cms_client"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
 )
 
 // TargetAddonResetUC – сброс состояния дополнения

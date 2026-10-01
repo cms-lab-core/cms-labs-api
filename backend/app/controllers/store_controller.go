@@ -1,12 +1,12 @@
 package controllers
 
 import (
+	"github.com/cms-lab-core/cms-labs-api/backend/app/di"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models/types"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases/auth"
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 	"github.com/goccy/go-json"
-	"github.com/maintainer64/cms-labs-api/backend/app/di"
-	"github.com/maintainer64/cms-labs-api/backend/app/models/types"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases/auth"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
 )
 
 // UserGlobalStoreGet func for get global store.

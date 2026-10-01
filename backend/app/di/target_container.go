@@ -1,11 +1,11 @@
 package di
 
 import (
-	"github.com/maintainer64/cms-labs-api/backend/app/addons"
-	"github.com/maintainer64/cms-labs-api/backend/app/addons/vault"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases"
-	"github.com/maintainer64/cms-labs-api/backend/pkg/configs"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/addons"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/addons/vault"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases"
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 )
 
 func (di *DIContainer) NewVaultClient() vault.ClientInterface {

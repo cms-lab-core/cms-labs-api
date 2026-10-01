@@ -1,7 +1,7 @@
 package di
 
 import (
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases"
 )
 
 func (di *DIContainer) ServerEditUC() *usecases.ServerEditUC {

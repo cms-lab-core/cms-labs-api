@@ -84,7 +84,7 @@ Jupyter Pods and checker Pods set `automountServiceAccountToken: false`.
 Jupyter gets only its PVC. Checker is a network/topology check in this release
 and does not mount the RWO notebook PVC.
 
-Laboratory checks live in the separate `github.com/maintainer64/cms-labs-checker`
+Laboratory checks live in the separate `github.com/cms-lab-core/cms-labs-checker`
 repository. Each `labs/<name>` package implements the stable `LabChecker`
 interface and owns its `_test.go` files. The packages are linked into one static
 binary through an explicit registry; Go plugins are deliberately avoided because

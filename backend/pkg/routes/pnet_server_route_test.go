@@ -9,10 +9,10 @@ import (
 	json "github.com/goccy/go-json"
 	"github.com/stretchr/testify/assert"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases"
 	"github.com/google/uuid"
-	"github.com/maintainer64/cms-labs-api/backend/app/usecases"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/models"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
 )
 
 func TestV1ServerRouteGet(t *testing.T) {

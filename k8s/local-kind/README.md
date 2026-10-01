@@ -111,7 +111,7 @@ kind create cluster \
   --image kindest/node:v1.33.12@sha256:3f5c8443c620245e4d355cfe09e96a91ead32ceaa569d3f1ca9edf0cb2fe2ff4
 
 helm upgrade --install clabernetes \
-  oci://ghcr.io/maintainer64/cms-labs-clabernetes/clabernetes \
+  oci://ghcr.io/cms-lab-core/cms-labs-clabernetes/clabernetes \
   --version 0.8.0-4 \
   --namespace c9s \
   --create-namespace \

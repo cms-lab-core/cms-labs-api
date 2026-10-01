@@ -5,8 +5,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
 	"github.com/gofiber/fiber/v2"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
 )
 
 func TestWorkspaceAuthFailuresRemainUnauthorizedWithJSONRPCMiddleware(t *testing.T) {

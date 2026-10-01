@@ -19,11 +19,11 @@ import (
 
 	fiber "github.com/gofiber/fiber/v2"
 
+	datastore "github.com/cms-lab-core/cms-labs-api/backend/app/queries/lti_query"
+	login "github.com/cms-lab-core/cms-labs-api/backend/app/usecases/lti_login"
 	"github.com/google/uuid"
 	"github.com/lestrrat-go/jwx/jwk"
 	"github.com/lestrrat-go/jwx/jwt"
-	datastore "github.com/maintainer64/cms-labs-api/backend/app/queries/lti_query"
-	login "github.com/maintainer64/cms-labs-api/backend/app/usecases/lti_login"
 )
 
 // A Launch implements an external application's role in the LTI specification's launch flow.

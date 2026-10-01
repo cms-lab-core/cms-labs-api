@@ -5,8 +5,8 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/maintainer64/cms-labs-api/backend/pkg/configs"
-	"github.com/maintainer64/cms-labs-api/shared/connection"
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/shared/connection"
 
 	fiber "github.com/gofiber/fiber/v2"
 )

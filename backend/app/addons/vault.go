@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/maintainer64/cms-labs-api/backend/app/addons/vault"
-	"github.com/maintainer64/cms-labs-api/shared/connection"
+	"github.com/cms-lab-core/cms-labs-api/backend/app/addons/vault"
+	"github.com/cms-lab-core/cms-labs-api/shared/connection"
 )
 
 // VaultAddonService implements AddonService for issuing Vault tokens.

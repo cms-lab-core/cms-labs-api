@@ -1,13 +1,13 @@
 package middleware
 
 import (
+	"github.com/cms-lab-core/cms-labs-api/pnetlabaddon/pkg/configs"
+	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
+	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 	fiber "github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/healthcheck"
 	"github.com/gofiber/fiber/v2/middleware/requestid"
-	"github.com/maintainer64/cms-labs-api/pnetlabaddon/pkg/configs"
-	"github.com/maintainer64/cms-labs-api/shared/jsonrpc"
-	"github.com/maintainer64/cms-labs-api/shared/logs"
 )
 
 // FiberMiddleware provide Fiber's built-in middlewares.
