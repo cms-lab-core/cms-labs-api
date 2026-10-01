@@ -7,6 +7,7 @@
 build/
 tmp/
 processed_migrations/
+.local/
 
 # Test
 *.out

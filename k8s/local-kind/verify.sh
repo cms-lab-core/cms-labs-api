@@ -2,8 +2,8 @@
 set -eu
 
 context=kind-cms-labs-local
-namespace=lab-550e8400-e29b-41d4-a716-446655440000
-session_id=550e8400-e29b-41d4-a716-446655440000
+namespace=lab-00000000-0000-0000-0000-000000000000
+session_id=00000000-0000-0000-0000-000000000000
 base_url=http://127.0.0.1:18080
 repo_root=$(CDPATH='' cd -- "$(dirname "$0")/../.." && pwd)
 cookie_jar=$(mktemp "${TMPDIR:-/tmp}/cms-labs-cookie.XXXXXX")

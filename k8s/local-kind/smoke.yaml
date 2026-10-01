@@ -9,28 +9,6 @@ metadata:
   name: clabgate
   namespace: cms-labs-system
 ---
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: clabgate-smoke-jwt
-  namespace: cms-labs-system
-data:
-  public.pem: |
-    -----BEGIN PUBLIC KEY-----
-    MIICIjANBgkqhkiG9w0BAQEFAAOCAg8AMIICCgKCAgEA3PlI3Ja4t9PX6koq46Eb
-    G3AnIVbGWm8LH1vSXyNahUv0pd1KBFRZMVSY5nxFtdBQ6XLyd+K5Wn32hIqljwrG
-    PxHUrswH9uDVXbWISh+XfYMHd9Mn6eYFIeSo3MzmnUhNy2FTdvsRsZqfZuI1u4Wd
-    nC/Pvd5Q8l5dMczZ5zJQ6X1IgYxEZxcD93ghTFO8MR4jYYsd2fG+XvYaBHlTLTYh
-    IaHnPne4ZYy6kLJxEtFCWkvAArU7EcVf7kMb8nBUegj23TH4D7gRViMSjsmmWQe0
-    3quqOsbsndcminZWqCK11EL7vnBIXAcOKlJOdulJiVbU+vQnAxfwPeqi8qTYz4Un
-    rVIf9XyJNq8vCscovp/oBtICy7MECPb+sRlWukdOosEhenj1DWlAgFl3XmdElh4U
-    15/UWrVxhrp+G6S3s7z3euoO8Aqh3Kv619OyW/xc+Dyxe5oPb8O42gAgW+0YggG7
-    7fqyUCpy3Jm1htjOurS642mYAnWrkTRHOIRtp0623WTjGHa6y8OkmZ2RlIOVlXdH
-    vxNGUIEX2BAlu/kNrjTetZHILYhBPAZ4AZwEEVMpHQO8RZtEqSSJaiY1bX6FMmpy
-    18GYUqGHFYX1yic3OOVuTUBujaLaAs3hqkHtgrYp3KsCQfGKjEPEO0ldkDjGeAbr
-    Er6AyP/AcV+0hsAFm1rWK8UCAwEAAQ==
-    -----END PUBLIC KEY-----
----
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -137,9 +115,6 @@ spec:
             - {name: WORKSPACE_AUTH_SECRET, value: local-smoke-secret-local-smoke-secret}
             - {name: CHECKER_IMAGE, value: "cms-labs/checker-smoke:local"}
             - {name: SESSION_RECONCILE_INTERVAL_SECONDS, value: "2"}
-            - name: JWT_SECRET_KEY_PUBLIC
-              valueFrom:
-                configMapKeyRef: {name: clabgate-smoke-jwt, key: public.pem}
             - name: POD_NAME
               valueFrom: {fieldRef: {fieldPath: metadata.name}}
             - name: POD_NAMESPACE

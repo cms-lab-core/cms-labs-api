@@ -56,7 +56,7 @@ deployments:
           - name: CHECKER_IMAGE
             value: ghcr.io/maintainer64/cms-labs-checker:1.0.1
           - name: JUPYTER_IMAGE
-            value: ghcr.io/maintainer64/cms-labs-jupyter:1.0.0
+            value: ghcr.io/maintainer64/cms-labs-jupyter@sha256:7654ca4a21f10dca40c504dab15f9867365d7ba5e3322abc62aab1979abbdefc
         ports:
           - name: http
             containerPort: 8080

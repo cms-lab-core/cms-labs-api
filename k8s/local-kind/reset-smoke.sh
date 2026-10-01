@@ -3,7 +3,7 @@ set -eu
 
 context=kind-cms-labs-local
 system_namespace=cms-labs-system
-session_namespace=lab-550e8400-e29b-41d4-a716-446655440000
+session_namespace=lab-00000000-0000-0000-0000-000000000000
 
 # The namespace contains only disposable smoke-test state.
 kubectl delete namespace "$session_namespace" \

@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cms-labs-dev-gateway
+  namespace: cms-labs-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cms-labs-dev-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: cms-labs-dev-gateway
+    spec:
+      automountServiceAccountToken: false
+      containers:
+        - name: nginx
+          image: docker.io/library/nginx:1.31.6-alpine3.24
+          ports:
+            - name: http
+              containerPort: 80
+          env:
+            # Restrict envsubst so nginx runtime variables such as $host and
+            # $request_uri remain intact in the shared production template.
+            - name: NGINX_ENVSUBST_FILTER
+              value: "^(SYSTEM_DNS|CMS_CORE_SERVICE|CLABGATE_SERVICE|SSL_CONF)$"
+            - name: SYSTEM_DNS
+              value: "10.96.0.10"
+            - name: CMS_CORE_SERVICE
+              value: "http://host.docker.internal:5000"
+            - name: CLABGATE_SERVICE
+              value: "http://host.docker.internal:5001"
+            - name: SSL_CONF
+              value: ""
+          readinessProbe:
+            httpGet:
+              path: /__dev_gateway/healthz
+              port: http
+            periodSeconds: 2
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 200m
+              memory: 64Mi
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nginx/templates/default.conf.template
+              subPath: default.conf.template
+              readOnly: true
+            - name: config
+              mountPath: /etc/nginx/frontend-location.conf
+              subPath: frontend-location.conf
+              readOnly: true
+      volumes:
+        - name: config
+          configMap:
+            name: cms-labs-dev-gateway
+---
+apiVersion: v1
+kind: Service
+metadata:
+  # Reuse the smoke frontend Service name so NodePort 30080 remains unique
+  # when a developer switches an existing cluster into --dev mode.
+  name: front
+  namespace: cms-labs-system
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: cms-labs-dev-gateway
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: 30080

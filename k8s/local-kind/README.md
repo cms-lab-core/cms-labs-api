@@ -1,5 +1,71 @@
 # Local kind smoke environment
 
+## Develop the complete stack from source
+
+Kind is managed by its CLI rather than as a Compose service. The existing
+`backend/docker-compose-dev.yml` starts MySQL and Vault, while Backend,
+Clabgate and Vite run directly from the working tree for fast rebuilds and
+debugger support. An nginx gateway inside kind keeps the browser, API,
+JupyterLab and ttyd on one origin.
+
+Install Docker, kind, kubectl and Helm, then run from the repository root:
+
+```bash
+make dev-up
+```
+
+This starts the existing Compose dependencies, creates (or reuses)
+`cms-labs-local`, installs the CMS Labs Clabernetes chart `0.8.0-4`, creates
+the `cms-labs-system` namespace and installs the development gateway. The two
+equivalent direct cluster commands are:
+
+```bash
+./k8s/local-kind/up.sh --dev
+./k8s/local-kind/up.sh --local
+```
+
+Start the applications in separate terminals:
+
+```bash
+make dev-backend
+make dev-seed
+make dev-clabgate
+make dev-front
+```
+
+`make dev-seed` is a one-shot command and may be run before or after the regular
+Backend process. Clabgate first tries its in-cluster ServiceAccount and then the
+standard `KUBECONFIG`/`~/.kube/config`, so the same binary works locally, in CI,
+and inside Kubernetes. The bootstrap writes an isolated development kubeconfig
+to `.local/kubeconfig`; `make dev-clabgate` selects it automatically. Its default
+local endpoints are Backend on port `5000`, Clabgate on port `5001` and Vite
+on port `5183`.
+
+Open the application through `http://127.0.0.1:18080`, not directly through
+Vite. The kind NodePort reaches nginx, which routes `/api/` and
+`/clabgate/api/` to the host processes and resolves per-session JupyterLab and
+ttyd Services inside Kubernetes. This preserves cookies, iframes and WebSocket
+upgrades on the same browser origin.
+
+The gateway does not maintain a copy of the production proxy rules. During
+`up.sh --dev`, its ConfigMap is generated from
+`nextui-dashboard/nginx/templates/default.conf.template`; only the frontend
+include is replaced with a Vite proxy. Re-run `up.sh --dev` after changing the
+nginx template. Running `up.sh` without either flag leaves the gateway out and
+is suitable for the image-based smoke environment.
+
+To remove the local dependencies and disposable cluster:
+
+```bash
+make dev-down
+```
+
+The local Bearer token is validated by calling CMS
+`/api/v1/sso/userinfo`; Clabgate does not need a copy of the CMS JWT public key.
+The workspace cookie check remains separate because Jupyter and ttyd traffic is
+proxied directly to namespace Services and does not pass through the Clabgate
+JSON-RPC handlers.
+
 This is a disposable self-hosted Kubernetes environment for the complete
 Clabgate session lifecycle. It runs two real Clabgate replicas against the
 Kubernetes API and the upstream Clabernetes controller. A stateful boundary
@@ -22,15 +88,14 @@ node:
     mountDockerSock: true
 ```
 
-The fixed attempt is `550e8400-e29b-41d4-a716-446655440000`. The frontend is
+The fixed attempt is `00000000-0000-0000-0000-000000000000`. The frontend is
 published at `http://127.0.0.1:18080`.
 
 ## Tested versions
 
 - kind `0.33.0`;
 - Kubernetes `1.33.12`;
-- Clabernetes chart `0.6.0`, digest
-  `sha256:21b22d346de11b11b9764d6ab25e21ab5b9212dfe7acdc5f40e4483bf6677cbd`;
+- CMS Labs Clabernetes chart `0.8.0-4`;
 - Docker Desktop on `linux/arm64`.
 
 The same commands work on `amd64` when `GOARCH` and Docker `--platform` are
@@ -46,8 +111,8 @@ kind create cluster \
   --image kindest/node:v1.33.12@sha256:3f5c8443c620245e4d355cfe09e96a91ead32ceaa569d3f1ca9edf0cb2fe2ff4
 
 helm upgrade --install clabernetes \
-  oci://ghcr.io/srl-labs/clabernetes/clabernetes \
-  --version 0.6.0 \
+  oci://ghcr.io/maintainer64/cms-labs-clabernetes/clabernetes \
+  --version 0.8.0-4 \
   --namespace c9s \
   --create-namespace \
   --kube-context kind-cms-labs-local
@@ -56,10 +121,8 @@ kubectl wait --for=condition=Available deployment \
   --all -n c9s --context kind-cms-labs-local --timeout=5m
 ```
 
-Do not add Helm `--wait` for chart `0.6.0`: its manager intentionally deletes
-the bootstrap `clabernetes-config` ConfigMap after merging it, while Helm keeps
-waiting for that object and eventually records a false timeout. Deployment
-readiness is checked explicitly above.
+Deployment readiness is checked explicitly after Helm installation so the same
+sequence works in local development and CI.
 
 If the node inherits a host proxy bound to `127.0.0.1`, containerd cannot use
 that address from inside the node container. Configure Docker Desktop with a
@@ -112,8 +175,9 @@ must be followed by `kind load docker-image` and replacement of the old Pod.
 
 ## Verify end to end
 
-The verifier uses the repository's existing test RSA key to act as student 42.
-It does not persist or print the five-minute JWT, workspace grant or cookie.
+The verifier sends a short-lived test Bearer token; the mock CMS resolves it to
+student 42 through `/api/v1/sso/userinfo`. It does not persist or print the
+token, workspace grant or cookie.
 
 ```bash
 ./k8s/local-kind/verify.sh
@@ -123,7 +187,7 @@ It checks all production-relevant boundaries:
 
 - two Clabgate replicas are Ready and one holder owns Lease
   `clabgate-session-reconciler`;
-- namespace `lab-550e8400-e29b-41d4-a716-446655440000`, Jupyter, PVC, Service
+- namespace `lab-00000000-0000-0000-0000-000000000000`, Jupyter, PVC, Service
   and Clabernetes Topology are Ready;
 - mock CMS moves from `pending` to `active` only after readiness;
 - direct workspace access without a grant returns HTTP 401;

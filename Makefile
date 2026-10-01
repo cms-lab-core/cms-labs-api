@@ -1,4 +1,11 @@
-.PHONY: clean security pre_commit test generate dev
+.PHONY: clean security pre_commit test generate dev \
+	dev-deps-up dev-cluster-up dev-up dev-backend dev-seed dev-clabgate \
+	dev-front \
+	dev-cluster-down dev-down
+
+DEV_COMPOSE = docker compose -f backend/docker-compose-dev.yml
+DEV_KUBECONFIG = $(CURDIR)/.local/kubeconfig
+DEMO_CATALOG ?=
 
 GO_PACKAGES = ./backend/... ./shared/... ./pnetlabaddon/... ./clabgate/...
 
@@ -36,3 +43,35 @@ generate_certs:
 
 dev:
 	./CI-CD/dev.sh
+
+dev-deps-up:
+	$(DEV_COMPOSE) up -d db vault
+
+dev-cluster-up:
+	./k8s/local-kind/up.sh --dev
+
+dev-up: dev-deps-up dev-cluster-up
+	@echo "Dependencies and kind are ready. Run 'make dev-backend' and 'make dev-clabgate' in separate terminals."
+
+dev-backend:
+	cd backend && ./migrate.sh up && go run .
+
+dev-seed:
+	cd backend && go run . --demo $(DEMO_CATALOG)
+
+dev-clabgate:
+	cd clabgate && \
+		SERVER_HOST="$${SERVER_HOST:-0.0.0.0}" \
+		KUBECONFIG="$${KUBECONFIG:-$(DEV_KUBECONFIG)}" \
+		POD_NAMESPACE="$${POD_NAMESPACE:-cms-labs-system}" \
+		go run .
+
+dev-front:
+	cd nextui-dashboard && npm run dev
+
+dev-cluster-down:
+	./k8s/local-kind/down.sh
+
+dev-down:
+	$(DEV_COMPOSE) down
+	./k8s/local-kind/down.sh
