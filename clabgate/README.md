@@ -31,8 +31,8 @@ flowchart LR
     CMS -->|redirect /session/attempt-uuid| Front[Общий React frontend]
     Front -->|CMS Bearer token + session.ensure/get/open/check/stop| Gate[clabgate]
     Gate -->|userinfo + validate attempt| CMS
-    Gate -->|GitLab/GitHub API: list YAML + pinned commit| Git[Task Git repository]
-    Gate -->|Namespace + ConfigMap + Topology + PVC + Deployment + Service + Job| K8s[Kubernetes API]
+    Gate -->|GitLab/GitHub API: task templates + pinned commit| Git[Task Git repository]
+    Gate -->|Namespace + allowed task resources + workspace + checker| K8s[Kubernetes API]
     K8s --> C9s[Clabernetes controller]
     C9s --> Nodes[Router/switch pods]
     K8s --> Jupyter[JupyterLab pod пользователя]
@@ -51,9 +51,10 @@ flowchart LR
 3. `clabgate` передаёт Bearer token в CMS `/api/v1/sso/userinfo`, получает проверенный `sub` и проверяет
    принадлежность ему активной попытки.
 4. Создаётся namespace `lab-<attempt UUID>` с labels/annotations сессии.
-5. `CMS_TASK_URL` разбирается как полный URL GitLab- или GitHub-проекта. Через API провайдера рекурсивно загружаются
-   YAML из каталога `labs_path`, а точный commit SHA фиксируется в namespace. Разрешены только `v1/ConfigMap` и один
-   `clabernetes Topology`; другие GVK отклоняются.
+5. Git-ссылка из routing (либо fallback `CMS_TASK_URL`) разбирается как полный URL GitLab- или GitHub-проекта. Через
+   API провайдера рекурсивно загружаются только `*.template.yaml`/`*.template.yml`, а точный commit SHA фиксируется в
+   namespace. Clabgate применяет ограниченный набор namespaced-ресурсов и не знает схему отдельных приложений вроде
+   terminal broker; cluster-scoped, секретные и опасные workload/RBAC-конфигурации отклоняются.
 6. В том же namespace создаются PVC, standalone JupyterLab Deployment и фиксированный Service `jupyter`. Jupyter —
    приложение сессии, а не JupyterHub single-user server.
 7. UI опрашивает `session.get`, показывает readiness topology/workspace и вызывает `session.open`. Короткий подписанный
@@ -92,7 +93,7 @@ source revision, session phase и ready-at) хранится в annotations. П�
 
 В namespace создаются:
 
-- разрешённые ConfigMap и один `Topology` из лабораторного шаблона;
+- разрешённые namespaced-ресурсы и один `Topology` из лабораторных `*.template.yaml`;
 - `PersistentVolumeClaim/jupyter`;
 - `Deployment/jupyter` и `Service/jupyter:8888`;
 - `Job/checker-*` только после явного `session.check`.

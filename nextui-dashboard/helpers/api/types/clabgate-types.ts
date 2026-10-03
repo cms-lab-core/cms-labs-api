@@ -132,6 +132,7 @@ export interface QueriesSessionRecord {
   desired_resources_accepted?: boolean;
   id?: string;
   lab_path?: string;
+  lab_resources_ready?: boolean;
   message?: string;
   namespace?: string;
   owner_id?: string;

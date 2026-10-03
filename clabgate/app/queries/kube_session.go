@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
 	"sort"
 	"strings"
@@ -22,11 +21,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/apimachinery/pkg/util/validation"
-	k8syaml "k8s.io/apimachinery/pkg/util/yaml"
 )
 
 const (
@@ -53,6 +50,7 @@ const (
 
 	SessionComponentWorkspace = "workspace"
 	SessionComponentChecker   = "checker"
+	SessionLabResourceLabel   = "labs.cmslabs.ru/lab-resource"
 
 	workspaceName = "jupyter"
 )
@@ -87,6 +85,7 @@ type SessionRecord struct {
 	WorkspaceURL      string       `json:"workspace_url,omitempty"`
 	TopologyReady     bool         `json:"topology_ready"`
 	WorkspaceReady    bool         `json:"workspace_ready"`
+	LabResourcesReady bool         `json:"lab_resources_ready"`
 	DesiredAccepted   bool         `json:"desired_resources_accepted"`
 	CheckerRunning    bool         `json:"checker_running"`
 	CheckerSuccessful *bool        `json:"checker_successful,omitempty"`
@@ -123,18 +122,19 @@ type CheckerTaskLog struct {
 }
 
 type EnsureSessionParams struct {
-	AttemptID       string
-	OwnerID         string
-	Username        string
-	Title           string
-	TestPath        string
-	TopologyYAML    string
-	JupyterImage    string
-	StorageSize     string
-	WorkspacePrefix string
-	TaskRepository  string
-	TaskRef         string
-	TaskRevision    string
+	AttemptID               string
+	OwnerID                 string
+	Username                string
+	Title                   string
+	TestPath                string
+	LabManifest             string
+	JupyterImage            string
+	StorageSize             string
+	WorkspacePrefix         string
+	TaskRepository          string
+	TaskRef                 string
+	TaskRevision            string
+	WorkspaceProxyNamespace string
 }
 
 type RunCheckerParams struct {
@@ -190,9 +190,9 @@ func (k *KubernetesAdminQuery) EnsureSession(ctx context.Context, params EnsureS
 		return SessionRecord{}, err
 	}
 
-	topologyRequired := strings.TrimSpace(params.TopologyYAML) != ""
+	topologyRequired := strings.TrimSpace(params.LabManifest) != ""
 	if topologyRequired {
-		if err := k.ensureTopology(ctx, namespaceName, params.AttemptID, params.OwnerID, params.TopologyYAML); err != nil {
+		if err := k.ensureLabManifest(ctx, namespaceName, params); err != nil {
 			return SessionRecord{}, err
 		}
 	}
@@ -289,124 +289,6 @@ func (k *KubernetesAdminQuery) ensureNamespace(
 		return nil, fmt.Errorf("create session namespace: %w", err)
 	}
 	return created, nil
-}
-
-func (k *KubernetesAdminQuery) ensureTopology(
-	ctx context.Context,
-	namespace, sessionID, ownerID, manifest string,
-) error {
-	manifest = strings.ReplaceAll(manifest, "$NAME", namespace)
-	decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(manifest), 4096)
-	objects := make([]*unstructured.Unstructured, 0)
-	topologyCount := 0
-	for {
-		raw := map[string]any{}
-		if err := decoder.Decode(&raw); errors.Is(err, io.EOF) {
-			break
-		} else if err != nil {
-			return fmt.Errorf("decode topology manifest: %w", err)
-		}
-		if len(raw) == 0 {
-			continue
-		}
-		obj := &unstructured.Unstructured{Object: raw}
-		switch {
-		case obj.GetAPIVersion() == "v1" && obj.GetKind() == "ConfigMap":
-		case obj.GetAPIVersion() == "c9s.run/v1alpha1" && obj.GetKind() == "Topology":
-			topologyCount++
-		default:
-			return fmt.Errorf("unsupported object %s %s in topology manifest; only v1 ConfigMap and clabernetes Topology are allowed", obj.GetAPIVersion(), obj.GetKind())
-		}
-		objects = append(objects, obj)
-	}
-	if topologyCount != 1 {
-		return fmt.Errorf("topology manifest must contain exactly one clabernetes Topology, got %d", topologyCount)
-	}
-	for _, obj := range objects {
-		if obj.GetKind() == "ConfigMap" {
-			if err := k.ensureTopologyConfigMap(ctx, namespace, sessionID, ownerID, obj); err != nil {
-				return err
-			}
-			continue
-		}
-		if err := k.ensureTopologyObject(ctx, namespace, sessionID, ownerID, obj); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func (k *KubernetesAdminQuery) ensureTopologyObject(
-	ctx context.Context,
-	namespace, sessionID, ownerID string,
-	obj *unstructured.Unstructured,
-) error {
-	obj.SetNamespace(namespace)
-	if obj.GetName() == "" {
-		obj.SetName(namespace)
-	}
-	objectLabels := obj.GetLabels()
-	if objectLabels == nil {
-		objectLabels = map[string]string{}
-	}
-	objectLabels[SessionManagedByLabel] = SessionManagedByValue
-	objectLabels[SessionIDLabel] = sessionID
-	objectLabels[SessionOwnerLabel] = ownerID
-	obj.SetLabels(objectLabels)
-
-	resourceClient := k.dynamicClient.Resource(topologyGVR).Namespace(namespace)
-	existing, err := resourceClient.Get(ctx, obj.GetName(), metav1.GetOptions{})
-	if apierrors.IsNotFound(err) {
-		if _, createErr := resourceClient.Create(ctx, obj, metav1.CreateOptions{}); createErr != nil {
-			return fmt.Errorf("create topology: %w", createErr)
-		}
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("get topology: %w", err)
-	}
-	obj.SetResourceVersion(existing.GetResourceVersion())
-	if _, err := resourceClient.Update(ctx, obj, metav1.UpdateOptions{}); err != nil {
-		return fmt.Errorf("update topology: %w", err)
-	}
-	return nil
-}
-
-func (k *KubernetesAdminQuery) ensureTopologyConfigMap(
-	ctx context.Context,
-	namespace, sessionID, ownerID string,
-	obj *unstructured.Unstructured,
-) error {
-	configMap := &corev1.ConfigMap{}
-	if err := runtime.DefaultUnstructuredConverter.FromUnstructured(obj.Object, configMap); err != nil {
-		return fmt.Errorf("decode topology ConfigMap: %w", err)
-	}
-	if configMap.Name == "" {
-		return errors.New("topology ConfigMap name is required")
-	}
-	configMap.Namespace = namespace
-	if configMap.Labels == nil {
-		configMap.Labels = map[string]string{}
-	}
-	configMap.Labels[SessionManagedByLabel] = SessionManagedByValue
-	configMap.Labels[SessionIDLabel] = sessionID
-	configMap.Labels[SessionOwnerLabel] = ownerID
-
-	existing, err := k.clientset.CoreV1().ConfigMaps(namespace).Get(ctx, configMap.Name, metav1.GetOptions{})
-	if apierrors.IsNotFound(err) {
-		if _, createErr := k.clientset.CoreV1().ConfigMaps(namespace).Create(ctx, configMap, metav1.CreateOptions{}); createErr != nil {
-			return fmt.Errorf("create topology ConfigMap %s: %w", configMap.Name, createErr)
-		}
-		return nil
-	}
-	if err != nil {
-		return fmt.Errorf("get topology ConfigMap %s: %w", configMap.Name, err)
-	}
-	configMap.ResourceVersion = existing.ResourceVersion
-	if _, err := k.clientset.CoreV1().ConfigMaps(namespace).Update(ctx, configMap, metav1.UpdateOptions{}); err != nil {
-		return fmt.Errorf("update topology ConfigMap %s: %w", configMap.Name, err)
-	}
-	return nil
 }
 
 func (k *KubernetesAdminQuery) ensureWorkspace(
@@ -608,6 +490,21 @@ func (k *KubernetesAdminQuery) sessionFromNamespace(
 		}
 	}
 
+	record.LabResourcesReady = true
+	labDeployments, labDeploymentsErr := k.clientset.AppsV1().Deployments(namespace.Name).List(ctx, metav1.ListOptions{
+		LabelSelector: labels.Set{SessionLabResourceLabel: "true"}.AsSelector().String(),
+	})
+	if labDeploymentsErr != nil {
+		return SessionRecord{}, fmt.Errorf("list lab deployments: %w", labDeploymentsErr)
+	}
+	for index := range labDeployments.Items {
+		deployment := &labDeployments.Items[index]
+		if deployment.Status.ReadyReplicas == 0 || deployment.Status.ReadyReplicas != deployment.Status.Replicas {
+			record.LabResourcesReady = false
+			break
+		}
+	}
+
 	jobs, err := k.clientset.BatchV1().Jobs(namespace.Name).List(ctx, metav1.ListOptions{LabelSelector: labels.Set{SessionComponentLabel: SessionComponentChecker}.AsSelector().String()})
 	if err == nil && len(jobs.Items) > 0 {
 		sort.Slice(jobs.Items, func(i, j int) bool {
@@ -627,7 +524,7 @@ func (k *KubernetesAdminQuery) sessionFromNamespace(
 	}
 
 	if record.Phase != SessionPhaseFailed && record.Phase != SessionPhaseDegraded {
-		if record.WorkspaceReady && record.TopologyReady {
+		if record.WorkspaceReady && record.TopologyReady && record.LabResourcesReady {
 			record.Phase = SessionPhaseReady
 		} else if namespace.Annotations[SessionTopologyAnnotation] == "unknown" {
 			record.Phase = SessionPhasePending
@@ -928,10 +825,17 @@ func (k *KubernetesAdminQuery) MarkSessionPhase(ctx context.Context, namespaceNa
 // changes and keeps the repository basename out of the learner's file browser.
 const SessionWorkspaceTaskDirectory = "task"
 
+// SessionWorkspaceApplication is the nbgitpuller "app" parameter. Without it
+// nbgitpuller falls back to its NBGITPULLER_APP default of "notebook" and
+// redirects to /tree/task, which serves the classic Notebook file browser
+// instead of JupyterLab. Naming "lab" keeps the redirect on /lab/tree/task.
+const SessionWorkspaceApplication = "lab"
+
 // buildWorkspaceURL asks nbgitpuller to sync the repository into a fixed task
-// directory and then to open that directory. nbgitpuller derives its redirect
-// target from the targetpath alone when urlpath is absent, so the repository
-// root is opened instead of a directory named after the repository.
+// directory and then to open that directory in JupyterLab. nbgitpuller derives
+// its redirect target from the targetpath alone when urlpath is absent, so the
+// repository root is opened instead of a directory named after the repository,
+// and app=lab keeps that redirect on JupyterLab rather than classic Notebook.
 func buildWorkspaceURL(prefix, sessionID, repository, ref string) string {
 	base := strings.TrimRight(prefix, "/") + "/" + sessionID
 	if strings.TrimSpace(repository) == "" || strings.TrimSpace(ref) == "" {
@@ -941,6 +845,7 @@ func buildWorkspaceURL(prefix, sessionID, repository, ref string) string {
 		"repo":       []string{repository},
 		"branch":     []string{ref},
 		"targetpath": []string{SessionWorkspaceTaskDirectory},
+		"app":        []string{SessionWorkspaceApplication},
 	}
 	return base + "/git-pull?" + query.Encode()
 }

@@ -78,9 +78,9 @@ func NewLabCatalog(projectURL, branch, token string, client *resty.Client) *LabC
 	}
 }
 
-// Bundle resolves one directory in a GitLab or GitHub project and downloads every YAML
-// file below it in deterministic order. Kubernetes object validation happens
-// later, before any document is applied.
+// Bundle resolves one directory in a GitLab or GitHub project and downloads every
+// *.template.yaml or *.template.yml file below it in deterministic order. Kubernetes object
+// validation happens later, before any document is applied.
 func (c *LabCatalog) Bundle(ctx context.Context, labsPath string) (LabBundle, error) {
 	return c.BundleAt(ctx, labsPath, "")
 }
@@ -146,9 +146,9 @@ func (c *LabCatalog) BundleAt(ctx context.Context, labsPath, pinnedRevision stri
 		}
 	}
 
-	manifest := strings.Join(filterTopologyDocuments(documents), "\n---\n")
+	manifest := strings.Join(filterLabManifestDocuments(documents), "\n---\n")
 	if strings.TrimSpace(manifest) == "" {
-		return LabBundle{}, fmt.Errorf("lab directory %q contains no clabernetes Topology manifests", repositoryRootLabel(cleaned))
+		return LabBundle{}, fmt.Errorf("lab directory %q contains no supported Kubernetes manifests", repositoryRootLabel(cleaned))
 	}
 	return LabBundle{
 		Manifest:   manifest,
@@ -235,8 +235,7 @@ func (c *LabCatalog) bundleFromGit(
 		if !entry.Type().IsRegular() {
 			return nil
 		}
-		extension := strings.ToLower(filepath.Ext(entry.Name()))
-		if extension != ".yaml" && extension != ".yml" {
+		if !isLabManifestPath(entry.Name()) {
 			return nil
 		}
 		relative, relativeErr := filepath.Rel(repositoryDir, filePath)
@@ -250,7 +249,7 @@ func (c *LabCatalog) bundleFromGit(
 		return LabBundle{}, fmt.Errorf("list task manifests in %q: %w", label, err)
 	}
 	if len(files) == 0 {
-		return LabBundle{}, fmt.Errorf("lab directory %q contains no YAML manifests", label)
+		return LabBundle{}, fmt.Errorf("lab directory %q contains no *.template.yaml manifests", label)
 	}
 	sort.Strings(files)
 
@@ -265,9 +264,9 @@ func (c *LabCatalog) bundleFromGit(
 		}
 	}
 
-	manifest := strings.Join(filterTopologyDocuments(documents), "\n---\n")
+	manifest := strings.Join(filterLabManifestDocuments(documents), "\n---\n")
 	if strings.TrimSpace(manifest) == "" {
-		return LabBundle{}, fmt.Errorf("lab directory %q contains no clabernetes Topology manifests", label)
+		return LabBundle{}, fmt.Errorf("lab directory %q contains no supported Kubernetes manifests", label)
 	}
 	return LabBundle{
 		Manifest:   manifest,
@@ -277,12 +276,11 @@ func (c *LabCatalog) bundleFromGit(
 	}, nil
 }
 
-// filterTopologyDocuments keeps only the objects session provisioning accepts:
-// v1 ConfigMap and clabernetes Topology. A lab repository also carries CI
-// workflows and its own deployment manifests, and those must not reach the
-// session namespace. Allowed objects are re-emitted one document per manifest,
-// so a mixed file contributes only its lab objects.
-func filterTopologyDocuments(documents []string) []string {
+// filterLabManifestDocuments keeps only the constrained namespaced object types accepted by
+// session provisioning. A task repository may also carry CI workflows and local deployment files;
+// unsupported documents never reach the attempt namespace. Allowed objects are re-emitted one
+// document at a time, so a mixed file contributes only its lab objects.
+func filterLabManifestDocuments(documents []string) []string {
 	kept := make([]string, 0, len(documents))
 	for _, document := range documents {
 		decoder := k8syaml.NewYAMLOrJSONDecoder(strings.NewReader(document), 4096)
@@ -299,8 +297,7 @@ func filterTopologyDocuments(documents []string) []string {
 			}
 			apiVersion, _ := raw["apiVersion"].(string)
 			kind, _ := raw["kind"].(string)
-			if (apiVersion != "v1" || kind != "ConfigMap") &&
-				(apiVersion != "c9s.run/v1alpha1" || kind != "Topology") {
+			if _, allowed := allowedLabObject(apiVersion, kind); !allowed {
 				continue
 			}
 			encoded, err := yaml.Marshal(raw)
@@ -405,7 +402,7 @@ func (c *LabCatalog) listYAMLFiles(ctx context.Context, repository repositoryLoc
 		}
 		files := filterYAMLFiles(tree.Tree, labsPath)
 		if len(files) == 0 {
-			return nil, fmt.Errorf("lab directory %q contains no YAML manifests", label)
+			return nil, fmt.Errorf("lab directory %q contains no *.template.yaml manifests", label)
 		}
 		return files, nil
 	}
@@ -434,8 +431,7 @@ func (c *LabCatalog) listYAMLFiles(ctx context.Context, repository repositoryLoc
 			return nil, fmt.Errorf("list task manifests in %q: HTTP %d", label, response.StatusCode())
 		}
 		for _, entry := range entries {
-			extension := strings.ToLower(path.Ext(entry.Path))
-			if entry.Type == "blob" && (extension == ".yaml" || extension == ".yml") {
+			if entry.Type == "blob" && isLabManifestPath(entry.Path) {
 				files = append(files, entry.Path)
 			}
 		}
@@ -444,7 +440,7 @@ func (c *LabCatalog) listYAMLFiles(ctx context.Context, repository repositoryLoc
 		}
 	}
 	if len(files) == 0 {
-		return nil, fmt.Errorf("lab directory %q contains no YAML manifests", label)
+		return nil, fmt.Errorf("lab directory %q contains no *.template.yaml manifests", label)
 	}
 	sort.Strings(files)
 	return files, nil
@@ -457,13 +453,17 @@ func filterYAMLFiles(entries []gitLabTreeEntry, labsPath string) []string {
 	}
 	files := make([]string, 0)
 	for _, entry := range entries {
-		extension := strings.ToLower(path.Ext(entry.Path))
-		if entry.Type == "blob" && strings.HasPrefix(entry.Path, prefix) && (extension == ".yaml" || extension == ".yml") {
+		if entry.Type == "blob" && strings.HasPrefix(entry.Path, prefix) && isLabManifestPath(entry.Path) {
 			files = append(files, entry.Path)
 		}
 	}
 	sort.Strings(files)
 	return files
+}
+
+func isLabManifestPath(value string) bool {
+	lower := strings.ToLower(value)
+	return strings.HasSuffix(lower, ".template.yaml") || strings.HasSuffix(lower, ".template.yml")
 }
 
 func (c *LabCatalog) downloadFile(ctx context.Context, repository repositoryLocation, file, revision string) (*resty.Response, error) {

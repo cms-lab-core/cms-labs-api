@@ -21,7 +21,7 @@ rules:
     resources: ["deployments"]
     verbs: ["get", "list", "create", "update", "patch", "delete"]
   - apiGroups: [""]
-    resources: ["namespaces", "pods", "pods/exec", "services", "persistentvolumeclaims", "configmaps"]
+    resources: ["namespaces", "pods", "pods/exec", "services", "persistentvolumeclaims", "configmaps", "serviceaccounts"]
     verbs: ["get", "list", "create", "update", "patch", "delete"]
   - apiGroups: [""]
     resources: ["pods/log"]
@@ -32,6 +32,12 @@ rules:
   - apiGroups: ["coordination.k8s.io"]
     resources: ["leases"]
     verbs: ["get", "list", "watch", "create", "update", "patch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["roles", "rolebindings"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies"]
+    verbs: ["get", "list", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

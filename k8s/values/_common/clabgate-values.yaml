@@ -18,7 +18,7 @@ serviceAccount:
           resources: [ "deployments" ]
           verbs: [ "get", "list", "create", "update", "patch", "delete" ]
         - apiGroups: [ "" ]
-          resources: [ "namespaces", "pods", "pods/exec", "services", "persistentvolumeclaims", "configmaps" ]
+          resources: [ "namespaces", "pods", "pods/exec", "services", "persistentvolumeclaims", "configmaps", "serviceaccounts" ]
           verbs: [ "get", "list", "create", "update", "patch", "delete" ]
         - apiGroups: [ "" ]
           resources: [ "pods/log" ]
@@ -29,6 +29,12 @@ serviceAccount:
         - apiGroups: [ "coordination.k8s.io" ]
           resources: [ "leases" ]
           verbs: [ "get", "list", "watch", "create", "update", "patch" ]
+        - apiGroups: [ "rbac.authorization.k8s.io" ]
+          resources: [ "roles", "rolebindings" ]
+          verbs: [ "get", "list", "create", "update", "patch", "delete" ]
+        - apiGroups: [ "networking.k8s.io" ]
+          resources: [ "networkpolicies" ]
+          verbs: [ "get", "list", "create", "update", "patch", "delete" ]
 
 deployments:
   clabgate:
@@ -54,9 +60,9 @@ deployments:
               fieldRef:
                 fieldPath: metadata.namespace
           - name: CHECKER_IMAGE
-            value: ghcr.io/cms-lab-core/cms-labs-checker:1.0.1
+            value: ghcr.io/cms-lab-core/cms-labs-checker:latest
           - name: JUPYTER_IMAGE
-            value: ghcr.io/cms-lab-core/cms-labs-jupyter@sha256:7654ca4a21f10dca40c504dab15f9867365d7ba5e3322abc62aab1979abbdefc
+            value: ghcr.io/cms-lab-core/cms-labs-jupyter:latest
         ports:
           - name: http
             containerPort: 8080

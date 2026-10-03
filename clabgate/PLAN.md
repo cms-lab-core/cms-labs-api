@@ -9,11 +9,11 @@ release; later collaboration work must not weaken its isolation model.
 - The existing CMS server/client with type `k8s` remains the owner of attempts.
 - Clabgate is responsible for the complete namespace: task manifests,
   Clabernetes topology, JupyterLab, checker jobs, status and deletion.
-- `CMS_TASK_URL` is a full GitLab or GitHub project URL, for example
-  `https://github.com/group/task-collection`. `labs_path` is a directory inside
-  that project. `test_path` is optional, is never fetched or executed by
-  Clabgate, and is forwarded to the trusted checker image as a compile-time
-  registry selector.
+- The CMS routing `labs_path` carries a full GitLab or GitHub repository URL,
+  optionally followed by `#ref`; `CMS_TASK_URL` and `CMS_TASK_BRANCH` remain
+  fallbacks. `test_path` is optional, is never fetched or executed by Clabgate,
+  and is forwarded to the trusted checker image as a compile-time registry
+  selector.
 - A CMS attempt stays `pending` while resources are being provisioned. It becomes
   `active` only after Clabgate observes the topology (when present) and Jupyter
   Deployment as ready. Kubernetes is the runtime source of truth.
@@ -44,20 +44,28 @@ restarted Clabgate must converge on the same objects.
 
 ## Task source and allowed manifests
 
-Clabgate uses the GitLab or GitHub Repository API selected from
-`CMS_TASK_URL`. It resolves `CMS_TASK_BRANCH`, recursively lists `.yaml` and
-`.yml` blobs below the normalized `labs_path`, sorts file paths, downloads the
-exact files and records the resolved commit SHA in the namespace.
+Clabgate uses the GitLab or GitHub Repository API selected from the routing URL.
+It resolves the selected ref, recursively lists `*.template.yaml` and
+`*.template.yml`, sorts file paths, downloads the exact files and records the
+resolved commit SHA in the namespace. The suffix prevents unrelated CI and
+local demo manifests in the same repository from becoming session resources.
 
-For the first release the allow-list is deliberately small:
+The namespaced allow-list is deliberately small:
 
-- `v1/ConfigMap` (zero or more);
-- `c9s.run/v1alpha1/Topology` (exactly one when any task
-  manifest exists).
+- `v1/ConfigMap`, `ServiceAccount`, `Service`;
+- `apps/v1/Deployment`;
+- `rbac.authorization.k8s.io/v1` `Role` and `RoleBinding`;
+- `networking.k8s.io/v1/NetworkPolicy`;
+- exactly one `c9s.run/v1alpha1/Topology`.
 
-Cluster-scoped objects, RBAC, Secrets, workloads and arbitrary metadata are
-rejected. Clabgate overwrites namespace and ownership labels. This boundary is
-what makes applying repository-owned YAML safe enough for production.
+Cluster-scoped objects, Secrets and unknown GVK are rejected. Deployments may
+not use host namespaces, hostPath, hostPort, privileged containers, privilege
+escalation or added capabilities. Services must remain ClusterIP; RBAC is
+limited to same-namespace ServiceAccounts and Roles without wildcards or
+non-resource URLs. Clabgate validates the complete bundle before the first
+write, overwrites namespace and ownership labels, and tracks supplied
+Deployments as part of session readiness. It does not know any
+`cms-labs-terminal` configuration schema.
 
 Private projects use optional `TASK_REPOSITORY_TOKEN` (`GITLAB_TOKEN` remains a
 legacy fallback); the token is sent only to the

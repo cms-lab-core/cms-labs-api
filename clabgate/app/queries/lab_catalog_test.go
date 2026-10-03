@@ -31,9 +31,10 @@ func TestLabCatalogBundleUsesGitLabAPIAndStableOrder(t *testing.T) {
 				t.Fatalf("unexpected tree query: %s", r.URL.RawQuery)
 			}
 			body, _ = json.Marshal([]map[string]string{
-				{"path": "course/lab 1/z.yml", "type": "blob"},
+				{"path": "course/lab 1/z.template.yml", "type": "blob"},
 				{"path": "course/lab 1/readme.md", "type": "blob"},
-				{"path": "course/lab 1/a.yaml", "type": "blob"},
+				{"path": "course/lab 1/deployment.yaml", "type": "blob"},
+				{"path": "course/lab 1/a.template.yaml", "type": "blob"},
 			})
 		case strings.Contains(r.URL.Path, "/repository/files/"):
 			file, _ := url.PathUnescape(strings.TrimSuffix(strings.TrimPrefix(r.URL.Path[strings.Index(r.URL.Path, "/repository/files/"):], "/repository/files/"), "/raw"))
@@ -54,10 +55,10 @@ func TestLabCatalogBundleUsesGitLabAPIAndStableOrder(t *testing.T) {
 	if bundle.Revision != revision {
 		t.Fatalf("revision = %q", bundle.Revision)
 	}
-	if len(bundle.Files) != 2 || bundle.Files[0] != "course/lab 1/a.yaml" || bundle.Files[1] != "course/lab 1/z.yml" {
+	if len(bundle.Files) != 2 || bundle.Files[0] != "course/lab 1/a.template.yaml" || bundle.Files[1] != "course/lab 1/z.template.yml" {
 		t.Fatalf("unexpected files: %#v", bundle.Files)
 	}
-	if strings.Index(bundle.Manifest, "name: a") > strings.Index(bundle.Manifest, "name: z.yml") {
+	if strings.Index(bundle.Manifest, "name: a.template") > strings.Index(bundle.Manifest, "name: z.template") {
 		t.Fatalf("manifests are not stable-sorted: %s", bundle.Manifest)
 	}
 }
@@ -82,9 +83,10 @@ func TestLabCatalogBundleUsesGitHubAPIAndStableOrder(t *testing.T) {
 				t.Fatalf("unexpected tree query: %s", r.URL.RawQuery)
 			}
 			body, _ = json.Marshal(map[string]any{"tree": []map[string]string{
-				{"path": "course/lab-1/z.yml", "type": "blob"},
-				{"path": "course/other/ignored.yaml", "type": "blob"},
-				{"path": "course/lab-1/a.yaml", "type": "blob"},
+				{"path": "course/lab-1/z.template.yml", "type": "blob"},
+				{"path": "course/other/ignored.template.yaml", "type": "blob"},
+				{"path": "course/lab-1/deployment.yaml", "type": "blob"},
+				{"path": "course/lab-1/a.template.yaml", "type": "blob"},
 			}})
 		case strings.Contains(r.URL.Path, "/contents/course/lab-1/"):
 			if r.Header.Get("Accept") != "application/vnd.github.raw+json" || r.URL.Query().Get("ref") != revision {
@@ -108,7 +110,7 @@ func TestLabCatalogBundleUsesGitHubAPIAndStableOrder(t *testing.T) {
 	if bundle.Revision != revision {
 		t.Fatalf("revision = %q", bundle.Revision)
 	}
-	if len(bundle.Files) != 2 || bundle.Files[0] != "course/lab-1/a.yaml" || bundle.Files[1] != "course/lab-1/z.yml" {
+	if len(bundle.Files) != 2 || bundle.Files[0] != "course/lab-1/a.template.yaml" || bundle.Files[1] != "course/lab-1/z.template.yml" {
 		t.Fatalf("unexpected files: %#v", bundle.Files)
 	}
 	if strings.Index(bundle.Manifest, "name: a") > strings.Index(bundle.Manifest, "name: z") {
@@ -136,10 +138,13 @@ func TestLabCatalogBundleUsesGitForPublicGitHubAndPinsRevision(t *testing.T) {
 	if err := os.MkdirAll(labDirectory, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(repositoryDir, "task", "z.yml"), []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: z\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(repositoryDir, "task", "z.template.yml"), []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: z\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	if err := os.WriteFile(filepath.Join(labDirectory, "a.yaml"), []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: a\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(labDirectory, "a.template.yaml"), []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: a\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(repositoryDir, "task", "deployment.yaml"), []byte("apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: ignored\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	if err := os.WriteFile(filepath.Join(repositoryDir, "task", "README.md"), []byte("ignored"), 0o600); err != nil {
@@ -158,14 +163,14 @@ func TestLabCatalogBundleUsesGitForPublicGitHubAndPinsRevision(t *testing.T) {
 	if bundle.Revision != firstRevision {
 		t.Fatalf("revision = %q, want %q", bundle.Revision, firstRevision)
 	}
-	if len(bundle.Files) != 2 || bundle.Files[0] != "task/nested/a.yaml" || bundle.Files[1] != "task/z.yml" {
+	if len(bundle.Files) != 2 || bundle.Files[0] != "task/nested/a.template.yaml" || bundle.Files[1] != "task/z.template.yml" {
 		t.Fatalf("unexpected files: %#v", bundle.Files)
 	}
 	if strings.Index(bundle.Manifest, "name: a") > strings.Index(bundle.Manifest, "name: z") {
 		t.Fatalf("manifests are not stable-sorted: %s", bundle.Manifest)
 	}
 
-	if err := os.WriteFile(filepath.Join(repositoryDir, "task", "z.yml"), []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: changed\n"), 0o600); err != nil {
+	if err := os.WriteFile(filepath.Join(repositoryDir, "task", "z.template.yml"), []byte("apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: changed\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	runTestGit(t, repositoryDir, "add", ".")
@@ -237,41 +242,44 @@ func TestLabCatalogBundleUsesGitLabRepositoryRootWithoutPath(t *testing.T) {
 	}
 }
 
-func TestFilterTopologyDocumentsKeepsOnlyLabObjects(t *testing.T) {
+func TestFilterLabManifestDocumentsKeepsOnlyAllowedObjects(t *testing.T) {
 	documents := []string{
 		"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: backend\n",
+		"apiVersion: v1\nkind: Secret\nmetadata:\n  name: credentials\n",
 		"name: CI\non:\n  push:\n    branches: [main]\n",
 		"apiVersion: c9s.run/v1alpha1\nkind: Topology\nmetadata:\n  name: task\n",
 		"apiVersion: v1\nkind: ConfigMap\nmetadata:\n  name: seed\n",
 	}
-	kept := filterTopologyDocuments(documents)
-	if len(kept) != 2 {
-		t.Fatalf("expected 2 lab manifests, got %d: %#v", len(kept), kept)
+	kept := filterLabManifestDocuments(documents)
+	if len(kept) != 3 {
+		t.Fatalf("expected 3 lab manifests, got %d: %#v", len(kept), kept)
 	}
 	joined := strings.Join(kept, "\n")
-	if strings.Contains(joined, "Deployment") || strings.Contains(joined, "push") {
+	if strings.Contains(joined, "Secret") || strings.Contains(joined, "push") {
 		t.Fatalf("foreign objects leaked into the manifest: %s", joined)
 	}
-	if !strings.Contains(kept[0], "kind: Topology") || !strings.Contains(kept[1], "kind: ConfigMap") {
+	if !strings.Contains(kept[0], "kind: Deployment") ||
+		!strings.Contains(kept[1], "kind: Topology") ||
+		!strings.Contains(kept[2], "kind: ConfigMap") {
 		t.Fatalf("unexpected manifests: %#v", kept)
 	}
 }
 
-func TestFilterTopologyDocumentsSplitsMixedFile(t *testing.T) {
-	kept := filterTopologyDocuments([]string{
-		"apiVersion: apps/v1\nkind: Deployment\nmetadata:\n  name: backend\n---\n" +
+func TestFilterLabManifestDocumentsSplitsMixedFile(t *testing.T) {
+	kept := filterLabManifestDocuments([]string{
+		"apiVersion: v1\nkind: Secret\nmetadata:\n  name: credentials\n---\n" +
 			"apiVersion: c9s.run/v1alpha1\nkind: Topology\nmetadata:\n  name: task\n",
 	})
 	if len(kept) != 1 {
 		t.Fatalf("expected only the Topology document, got %#v", kept)
 	}
-	if strings.Contains(kept[0], "Deployment") {
-		t.Fatalf("Deployment leaked into the manifest: %s", kept[0])
+	if strings.Contains(kept[0], "Secret") {
+		t.Fatalf("Secret leaked into the manifest: %s", kept[0])
 	}
 }
 
-func TestFilterTopologyDocumentsDropsNonKubernetesYAML(t *testing.T) {
-	if kept := filterTopologyDocuments([]string{"just: [a, b]\n"}); len(kept) != 0 {
+func TestFilterLabManifestDocumentsDropsNonKubernetesYAML(t *testing.T) {
+	if kept := filterLabManifestDocuments([]string{"just: [a, b]\n"}); len(kept) != 0 {
 		t.Fatalf("expected no manifests, got %#v", kept)
 	}
 }

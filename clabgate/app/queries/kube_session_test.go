@@ -69,7 +69,7 @@ spec:
 		OwnerID:         "42",
 		Username:        "student",
 		Title:           "Lab",
-		TopologyYAML:    manifest,
+		LabManifest:     manifest,
 		JupyterImage:    "example.test/jupyter:latest",
 		StorageSize:     "1Gi",
 		WorkspacePrefix: "/clabgate/workspace",
@@ -125,7 +125,177 @@ spec:
 	}
 }
 
-func TestEnsureTopologyValidatesAllDocumentsBeforeApply(t *testing.T) {
+func TestEnsureLabManifestAppliesNamespacedResources(t *testing.T) {
+	client := kubernetesfake.NewSimpleClientset()
+	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
+		runtime.NewScheme(),
+		map[schema.GroupVersionResource]string{topologyGVR: "TopologyList"},
+	)
+	logger := zerolog.Nop()
+	admin := NewKubernetesAdminWithClients(client, dynamicClient, nil, &logger)
+	manifest := `apiVersion: c9s.run/v1alpha1
+kind: Topology
+metadata:
+  name: $NAME
+spec:
+  definition:
+    containerlab: |
+      name: $NAME
+      topology:
+        nodes: {}
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: lab-helper
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: lab-helper
+rules:
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: lab-helper
+subjects:
+  - kind: ServiceAccount
+    name: lab-helper
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: lab-helper
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: lab-helper
+  finalizers: [task.example.test/retain]
+data:
+  namespace: $NAME
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lab-helper
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: lab-helper}
+  template:
+    metadata:
+      labels: {app: lab-helper}
+    spec:
+      serviceAccountName: lab-helper
+      containers:
+        - name: helper
+          image: example.test/lab-helper:1.0.0
+          securityContext:
+            allowPrivilegeEscalation: false
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lab-helper
+spec:
+  type: ClusterIP
+  selector: {app: lab-helper}
+  ports:
+    - name: ttyd
+      port: 7681
+      targetPort: 7681
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: lab-helper
+spec:
+  podSelector:
+    matchLabels: {app: lab-helper}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: $WORKSPACE_PROXY_NAMESPACE
+      ports:
+        - protocol: TCP
+          port: 7681
+`
+	params := EnsureSessionParams{
+		AttemptID:               "session",
+		OwnerID:                 "owner",
+		LabManifest:             manifest,
+		WorkspaceProxyNamespace: "cms-labs-system",
+	}
+	const namespace = "lab-session"
+	if err := admin.ensureLabManifest(context.Background(), namespace, params); err != nil {
+		t.Fatalf("ensureLabManifest returned error: %v", err)
+	}
+
+	configMap, err := client.CoreV1().ConfigMaps(namespace).Get(context.Background(), "lab-helper", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("ConfigMap was not created: %v", err)
+	}
+	if configMap.Data["namespace"] != namespace || configMap.Labels[SessionIDLabel] != params.AttemptID ||
+		len(configMap.Finalizers) != 0 {
+		t.Fatalf("ConfigMap substitutions or ownership labels are missing: %#v", configMap)
+	}
+	if _, err = client.CoreV1().ServiceAccounts(namespace).Get(context.Background(), "lab-helper", metav1.GetOptions{}); err != nil {
+		t.Fatalf("ServiceAccount was not created: %v", err)
+	}
+	if _, err = client.RbacV1().Roles(namespace).Get(context.Background(), "lab-helper", metav1.GetOptions{}); err != nil {
+		t.Fatalf("Role was not created: %v", err)
+	}
+	binding, err := client.RbacV1().RoleBindings(namespace).Get(context.Background(), "lab-helper", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("RoleBinding was not created: %v", err)
+	}
+	if len(binding.Subjects) != 1 || binding.Subjects[0].Namespace != namespace {
+		t.Fatalf("RoleBinding subject namespace was not constrained: %#v", binding.Subjects)
+	}
+	deployment, err := client.AppsV1().Deployments(namespace).Get(context.Background(), "lab-helper", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("Deployment was not created: %v", err)
+	}
+	if deployment.Spec.Template.Spec.Containers[0].Image != "example.test/lab-helper:1.0.0" ||
+		deployment.Labels[SessionLabResourceLabel] != "true" {
+		t.Fatalf("Deployment must come from the manifest and be tracked for readiness: %#v", deployment)
+	}
+	if _, err = client.CoreV1().Services(namespace).Get(context.Background(), "lab-helper", metav1.GetOptions{}); err != nil {
+		t.Fatalf("Service was not created: %v", err)
+	}
+	policy, err := client.NetworkingV1().NetworkPolicies(namespace).Get(context.Background(), "lab-helper", metav1.GetOptions{})
+	if err != nil {
+		t.Fatalf("NetworkPolicy was not created: %v", err)
+	}
+	proxyNamespace := policy.Spec.Ingress[0].From[0].NamespaceSelector.MatchLabels["kubernetes.io/metadata.name"]
+	if proxyNamespace != params.WorkspaceProxyNamespace {
+		t.Fatalf("proxy namespace = %q, want %q", proxyNamespace, params.WorkspaceProxyNamespace)
+	}
+	topology, err := dynamicClient.Resource(topologyGVR).Namespace(namespace).Get(
+		context.Background(),
+		namespace,
+		metav1.GetOptions{},
+	)
+	if err != nil {
+		t.Fatalf("Topology was not created: %v", err)
+	}
+	if topology.GetNamespace() != namespace || topology.GetLabels()[SessionOwnerLabel] != params.OwnerID {
+		t.Fatalf("Topology namespace or ownership labels are missing: %#v", topology.Object)
+	}
+
+	if err = admin.ensureLabManifest(context.Background(), namespace, params); err != nil {
+		t.Fatalf("ensureLabManifest is not idempotent: %v", err)
+	}
+}
+
+func TestEnsureLabManifestValidatesAllDocumentsBeforeApply(t *testing.T) {
 	client := kubernetesfake.NewSimpleClientset()
 	dynamicClient := dynamicfake.NewSimpleDynamicClientWithCustomListKinds(
 		runtime.NewScheme(),
@@ -143,11 +313,86 @@ kind: Secret
 metadata:
   name: forbidden
 `
-	if err := admin.ensureTopology(context.Background(), "lab-test", "session", "owner", manifest); err == nil {
+	params := EnsureSessionParams{
+		AttemptID:   "session",
+		OwnerID:     "owner",
+		LabManifest: manifest,
+	}
+	if err := admin.ensureLabManifest(context.Background(), "lab-test", params); err == nil {
 		t.Fatal("unsupported manifest was accepted")
 	}
 	if _, err := client.CoreV1().ConfigMaps("lab-test").Get(context.Background(), "must-not-exist", metav1.GetOptions{}); err == nil {
 		t.Fatal("ConfigMap was applied before the complete manifest was validated")
+	}
+}
+
+func TestSessionWaitsForLabDeployments(t *testing.T) {
+	const (
+		namespace = "lab-session"
+		sessionID = "session"
+	)
+	replicas := int32(1)
+	client := kubernetesfake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
+			Name: namespace,
+			Labels: map[string]string{
+				SessionManagedByLabel: SessionManagedByValue,
+				SessionIDLabel:        sessionID,
+				SessionOwnerLabel:     "owner",
+			},
+			Annotations: map[string]string{
+				SessionAttemptAnnotation:  sessionID,
+				SessionTopologyAnnotation: "false",
+			},
+		}},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{Name: workspaceName, Namespace: namespace},
+			Spec:       appsv1.DeploymentSpec{Replicas: &replicas},
+			Status:     appsv1.DeploymentStatus{Replicas: 1, ReadyReplicas: 1},
+		},
+		&appsv1.Deployment{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "lab-helper",
+				Namespace: namespace,
+				Labels:    map[string]string{SessionLabResourceLabel: "true"},
+			},
+			Spec:   appsv1.DeploymentSpec{Replicas: &replicas},
+			Status: appsv1.DeploymentStatus{Replicas: 1},
+		},
+	)
+	logger := zerolog.Nop()
+	admin := NewKubernetesAdminWithClients(client, nil, nil, &logger)
+
+	record, err := admin.GetSession(context.Background(), sessionID, "/clabgate/workspace")
+	if err != nil {
+		t.Fatalf("GetSession returned error: %v", err)
+	}
+	if record.Phase == SessionPhaseReady || record.LabResourcesReady {
+		t.Fatalf("session became ready before its lab Deployment: %+v", record)
+	}
+
+	deployment, err := client.AppsV1().Deployments(namespace).Get(
+		context.Background(),
+		"lab-helper",
+		metav1.GetOptions{},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deployment.Status.ReadyReplicas = 1
+	if _, err = client.AppsV1().Deployments(namespace).UpdateStatus(
+		context.Background(),
+		deployment,
+		metav1.UpdateOptions{},
+	); err != nil {
+		t.Fatal(err)
+	}
+	record, err = admin.GetSession(context.Background(), sessionID, "/clabgate/workspace")
+	if err != nil {
+		t.Fatalf("GetSession after readiness returned error: %v", err)
+	}
+	if record.Phase != SessionPhaseReady || !record.LabResourcesReady {
+		t.Fatalf("session did not become ready with its lab Deployment: %+v", record)
 	}
 }
 
@@ -160,6 +405,7 @@ func TestBuildWorkspaceURL(t *testing.T) {
 	)
 	for _, expectedPart := range []string{
 		"/clabgate/workspace/00000000-0000-0000-0000-000000000000/git-pull?",
+		"app=lab",
 		"branch=main",
 		"repo=https%3A%2F%2Fgit.example.test%2Fgroup%2Fcms-labs-simple-task.git",
 		"targetpath=task",
@@ -167,6 +413,12 @@ func TestBuildWorkspaceURL(t *testing.T) {
 		if !strings.Contains(got, expectedPart) {
 			t.Fatalf("workspace URL %q does not contain %q", got, expectedPart)
 		}
+	}
+	// app must stay "lab": nbgitpuller otherwise defaults to its "notebook"
+	// app and redirects to /tree/task, serving the classic Notebook browser
+	// instead of JupyterLab. A "notebook" value would pin that regression.
+	if strings.Contains(got, "app=notebook") {
+		t.Fatalf("workspace URL asks nbgitpuller for the classic Notebook UI: %q", got)
 	}
 	// No urlpath may pin a directory that does not exist inside the clone, and
 	// the only directory in the URL is the fixed task directory.

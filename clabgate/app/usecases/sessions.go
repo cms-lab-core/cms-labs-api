@@ -186,18 +186,19 @@ func (u *SessionsUC) ensureAttemptSession(
 		return queries.SessionRecord{}, fmt.Errorf("download task: %w", err)
 	}
 	record, err := u.KubernetesAdminQuery.EnsureSession(ctx, queries.EnsureSessionParams{
-		AttemptID:       attempt.AttemptID,
-		OwnerID:         ownerID,
-		Username:        username,
-		Title:           attempt.RoutingName,
-		TestPath:        attempt.TestPath,
-		TopologyYAML:    bundle.Manifest,
-		JupyterImage:    configs.AppConfig.Session.JupyterImage,
-		StorageSize:     configs.AppConfig.Session.JupyterStorage,
-		WorkspacePrefix: configs.AppConfig.Session.WorkspacePrefix,
-		TaskRepository:  repositoryURL,
-		TaskRef:         repositoryRef,
-		TaskRevision:    bundle.Revision,
+		AttemptID:               attempt.AttemptID,
+		OwnerID:                 ownerID,
+		Username:                username,
+		Title:                   attempt.RoutingName,
+		TestPath:                attempt.TestPath,
+		LabManifest:             bundle.Manifest,
+		JupyterImage:            configs.AppConfig.Session.JupyterImage,
+		StorageSize:             configs.AppConfig.Session.JupyterStorage,
+		WorkspacePrefix:         configs.AppConfig.Session.WorkspacePrefix,
+		TaskRepository:          repositoryURL,
+		TaskRef:                 repositoryRef,
+		TaskRevision:            bundle.Revision,
+		WorkspaceProxyNamespace: configs.AppConfig.Session.WorkspaceProxyNamespace,
 	})
 	if err != nil {
 		return queries.SessionRecord{}, err
