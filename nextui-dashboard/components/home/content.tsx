@@ -13,9 +13,9 @@ export const Content = () => {
     locale: { Servers, ServersQueue }
   } = useLanguageBrowser();
   return (
-    <div className='h-full lg:px-6'>
-      <div className='flex justify-center gap-4 xl:gap-6 lg:px-0 flex-wrap xl:flex-nowrap max-w-[90rem] mx-auto w-full'>
-        <div className='mt-6 gap-6 flex flex-col w-full'>
+    <div className='h-full w-full min-w-0 px-4 lg:px-6'>
+      <div className='mx-auto flex w-full min-w-0 max-w-[90rem] flex-wrap justify-center gap-4 lg:px-0 xl:flex-nowrap xl:gap-6'>
+        <div className='mt-6 flex w-full min-w-0 flex-col gap-6'>
           {/* ServersCharts */}
           <ContentCardWrapperMain title={Servers.StatsChart.Title} link={RoutesLocation.servers()} wrapChildren={true}>
             <CardServers />
@@ -26,7 +26,7 @@ export const Content = () => {
         </div>
 
         {/* Left Section */}
-        <div className='mt-4 gap-2 flex flex-col xl:max-w-md w-full'>
+        <div className='mt-4 flex w-full min-w-0 flex-col gap-2 xl:max-w-md'>
           <div>
             <CardLastAttempt />
           </div>

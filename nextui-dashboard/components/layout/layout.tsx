@@ -19,9 +19,9 @@ export const Layout = ({ children }: Props) => {
         setCollapsed: sidebarState.setCollapsed
       }}
     >
-      <section className='flex'>
+      <section className='flex h-screen w-full min-w-0 overflow-hidden'>
         <SidebarWrapper />
-        <div className='relative flex flex-col flex-1 overflow-y-auto overflow-x-hidden'>{children}</div>
+        <main className='relative flex min-w-0 flex-1 flex-col overflow-x-hidden overflow-y-auto'>{children}</main>
       </section>
     </SidebarContext.Provider>
   );
