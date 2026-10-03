@@ -11,7 +11,10 @@ export const CardLastAttempt = () => {
       Tables: { LTIAttemptsTable }
     }
   } = useLanguageBrowser();
-  const response = useQueryLtiAttemptList({ limit: 10 });
+  const response = useQueryLtiAttemptList(
+    { limit: 10, statuses: ['pending', 'active', 'terminating'] },
+    { refetchInterval: 60_000 }
+  );
   const items = response.data?.model || [];
   return (
     <ContentCardWrapperMain

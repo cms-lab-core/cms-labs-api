@@ -7,6 +7,7 @@ import { ContentCardWrapperMain } from '@/components/home/card-wrapper';
 import useLanguageBrowser from '@/helpers/locale';
 import { RoutesLocation } from '@/components/routes';
 import CardServersDistribute from '@/components/home/card-servers-distribute';
+import { HomeSummaryCards } from '@/components/home/summary-cards';
 
 export const Content = () => {
   const {
@@ -14,9 +15,14 @@ export const Content = () => {
   } = useLanguageBrowser();
   return (
     <div className='h-full w-full min-w-0 px-4 lg:px-6'>
-      <div className='mx-auto flex w-full min-w-0 max-w-[90rem] flex-wrap justify-center gap-4 lg:px-0 xl:flex-nowrap xl:gap-6'>
-        <div className='mt-6 flex w-full min-w-0 flex-col gap-6'>
-          {/* ServersCharts */}
+      <div className='mx-auto w-full min-w-0 max-w-[90rem] pt-6'>
+        <HomeSummaryCards />
+
+        <div className='mt-6'>
+          <CardLastAttempt />
+        </div>
+
+        <div className='mt-6 grid min-w-0 gap-6 xl:grid-cols-2'>
           <ContentCardWrapperMain title={Servers.StatsChart.Title} link={RoutesLocation.servers()} wrapChildren={true}>
             <CardServers />
           </ContentCardWrapperMain>
@@ -24,15 +30,8 @@ export const Content = () => {
             <CardServersDistribute />
           </ContentCardWrapperMain>
         </div>
-
-        {/* Left Section */}
-        <div className='mt-4 flex w-full min-w-0 flex-col gap-2 xl:max-w-md'>
-          <div>
-            <CardLastAttempt />
-          </div>
-        </div>
       </div>
-      <div className='gap-4 xl:gap-6 pt-3 px-4 lg:px-0 xl:flex-nowrap sm:pt-10 max-w-[90rem] mx-auto w-full'>
+      <div className='mx-auto w-full max-w-[90rem] gap-4 pt-6 lg:px-0 xl:flex-nowrap xl:gap-6'>
         <HomeUsersWidget />
       </div>
     </div>

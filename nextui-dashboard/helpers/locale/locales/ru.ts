@@ -68,6 +68,22 @@ const ru = {
       DeleteError: 'Ошибка удаления'
     }
   },
+  Home: {
+    OverviewTitle: 'Учебный контур',
+    OverviewDescription: 'Текущее состояние лабораторных сессий и автоматических проверок.',
+    SessionsTotal: 'Активные сессии',
+    SessionsTotalDescription: 'Все запускаемые, работающие и завершаемые лаборатории',
+    SessionsRunning: 'Работают',
+    SessionsRunningDescription: 'Стенд принят сервером и доступен пользователю',
+    SessionsPending: 'Запускаются',
+    SessionsPendingDescription: 'Ожидают назначения или готовности ресурсов',
+    SessionsChecked: 'Проверены',
+    SessionsCheckedDescription: 'Есть хотя бы один сохранённый результат checker',
+    SessionsTerminating: 'Завершаются',
+    SessionsTerminatingDescription: 'Выполняется очистка ресурсов лаборатории',
+    ChecksPassed: 'Успешных проверок',
+    UpdatedAt: 'Обновлено'
+  },
   LanguageSwitcher: {
     LanguageSwitch: 'Выберите язык'
   },
@@ -104,7 +120,7 @@ const ru = {
     },
     LTIAttemptsTable: {
       Title: 'Попытки LTI',
-      TitleWidgetHome: 'Последние попытки',
+      TitleWidgetHome: 'Активные сессии',
       ButtonEdit: 'Редактировать',
       ButtonAdd: 'Создать',
       SearchBar: 'Поиск',
@@ -120,6 +136,7 @@ const ru = {
         { name: 'СЕРВЕР', uid: 'server' },
         { name: 'НАЗВАНИЕ', uid: 'name' },
         { name: 'СТАТУС', uid: 'status' },
+        { name: 'ПРОВЕРКИ', uid: 'checks' },
         { name: 'ДЕЙСТВИЕ', uid: 'actions' }
       ]
     },

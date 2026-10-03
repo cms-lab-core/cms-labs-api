@@ -68,6 +68,22 @@ const en = {
       DeleteError: 'Delete error'
     }
   },
+  Home: {
+    OverviewTitle: 'Lab environment',
+    OverviewDescription: 'Current state of laboratory sessions and automated validation.',
+    SessionsTotal: 'Active sessions',
+    SessionsTotalDescription: 'All starting, running, and terminating laboratory sessions',
+    SessionsRunning: 'Running',
+    SessionsRunningDescription: 'The environment is accepted by the server and available to the user',
+    SessionsPending: 'Starting',
+    SessionsPendingDescription: 'Waiting for assignment or resource readiness',
+    SessionsChecked: 'Validated',
+    SessionsCheckedDescription: 'At least one checker result has been recorded',
+    SessionsTerminating: 'Terminating',
+    SessionsTerminatingDescription: 'Laboratory resources are being cleaned up',
+    ChecksPassed: 'Passed checks',
+    UpdatedAt: 'Updated'
+  },
   LanguageSwitcher: {
     LanguageSwitch: 'Select language'
   },
@@ -104,7 +120,7 @@ const en = {
     },
     LTIAttemptsTable: {
       Title: 'LTI Attempts',
-      TitleWidgetHome: 'Latest attempts',
+      TitleWidgetHome: 'Active sessions',
       ButtonEdit: 'Edit',
       ButtonAdd: 'Create',
       SearchBar: 'Search',
@@ -120,6 +136,7 @@ const en = {
         { name: 'SERVER', uid: 'server' },
         { name: 'NAME', uid: 'name' },
         { name: 'STATUS', uid: 'status' },
+        { name: 'CHECKS', uid: 'checks' },
         { name: 'ACTIONS', uid: 'actions' }
       ]
     },
