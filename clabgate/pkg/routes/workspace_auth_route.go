@@ -51,5 +51,6 @@ func workspaceVerify(c *fiber.Ctx) error {
 		return c.Status(http.StatusInternalServerError).SendString("workspace identity unavailable")
 	}
 	c.Set("X-CMS-Identity", encoded)
+	c.Set("X-CMS-Terminal-Identity", usecases.EncodeTerminalIdentity(identity))
 	return c.SendStatus(http.StatusNoContent)
 }

@@ -46,3 +46,23 @@ func TestWorkspaceGrantRejectsOpenRedirectAndWeakSecret(t *testing.T) {
 		t.Fatal("absolute redirect was accepted")
 	}
 }
+
+func TestTerminalIdentityFitsTTYDProxyAuthLimit(t *testing.T) {
+	t.Parallel()
+	short := WorkspaceIdentity{Subject: "42", Username: "student.name"}
+	if got := EncodeTerminalIdentity(short); got != short.Username {
+		t.Fatalf("short terminal identity = %q, want %q", got, short.Username)
+	}
+
+	long := WorkspaceIdentity{Subject: "user-42", Username: strings.Repeat("student", 8)}
+	first := EncodeTerminalIdentity(long)
+	if len(first) != terminalIdentityMaxBytes {
+		t.Fatalf("long terminal identity has %d bytes, want %d: %q", len(first), terminalIdentityMaxBytes, first)
+	}
+	if second := EncodeTerminalIdentity(long); second != first {
+		t.Fatalf("terminal identity is not stable: %q != %q", second, first)
+	}
+	if other := EncodeTerminalIdentity(WorkspaceIdentity{Subject: "user-43", Username: long.Username}); other == first {
+		t.Fatalf("different subjects produced the same terminal identity %q", first)
+	}
+}

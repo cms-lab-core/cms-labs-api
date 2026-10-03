@@ -69,7 +69,9 @@ server {
         set $terminal_target http://$terminal_service.lab-$terminal_session.svc.cluster.local:7681;
 
         auth_request /_clabgate_workspace_verify;
-        auth_request_set $terminal_identity $upstream_http_x_cms_identity;
+        # ttyd currently rejects auth-header values of 30 bytes or more. Clabgate returns a
+        # separate compact identity for ttyd while X-CMS-Identity remains the full Jupyter identity.
+        auth_request_set $terminal_identity $upstream_http_x_cms_terminal_identity;
 
         proxy_pass $terminal_target$terminal_path;
         proxy_http_version 1.1;

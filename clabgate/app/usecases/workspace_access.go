@@ -1,6 +1,7 @@
 package usecases
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -12,6 +13,11 @@ import (
 )
 
 const WorkspaceCookieName = "clabgate_workspace"
+
+// ttyd stores the value of --auth-header in a fixed 30-byte username buffer and rejects the
+// WebSocket handshake when the value is 30 bytes or longer. Keep the proxy-auth identity below
+// that limit; the complete identity continues to be sent separately to JupyterLab.
+const terminalIdentityMaxBytes = 29
 
 type workspaceClaims struct {
 	Kind        string            `json:"kind"`
@@ -98,6 +104,29 @@ func EncodeWorkspaceIdentity(identity WorkspaceIdentity) (string, error) {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(payload), nil
+}
+
+func EncodeTerminalIdentity(identity WorkspaceIdentity) string {
+	if validTerminalIdentity(identity.Username) {
+		return identity.Username
+	}
+	sum := sha256.Sum256([]byte(identity.Subject + "\x00" + identity.Username))
+	return "u-" + base64.RawURLEncoding.EncodeToString(sum[:])[:terminalIdentityMaxBytes-2]
+}
+
+func validTerminalIdentity(value string) bool {
+	if value == "" || len(value) > terminalIdentityMaxBytes {
+		return false
+	}
+	for index := range len(value) {
+		character := value[index]
+		if (character >= 'a' && character <= 'z') || (character >= 'A' && character <= 'Z') ||
+			(character >= '0' && character <= '9') || strings.ContainsRune("._@-", rune(character)) {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func parseWorkspaceToken(secret, value, audience string) (*workspaceClaims, error) {
