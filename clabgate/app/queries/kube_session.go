@@ -347,6 +347,8 @@ func (k *KubernetesAdminQuery) ensureWorkspace(
 						},
 						Env: []corev1.EnvVar{
 							{Name: "ATTEMPT_ID", Value: params.AttemptID},
+							{Name: "CMS_LABS_SESSION_ID", Value: params.AttemptID},
+							{Name: "CMS_LABS_CAPTURE_URL", Value: "http://cms-labs-capture:8080"},
 							{Name: "JUPYTER_ENABLE_LAB", Value: "yes"},
 						},
 						Ports:          []corev1.ContainerPort{{Name: "http", ContainerPort: 8888}},

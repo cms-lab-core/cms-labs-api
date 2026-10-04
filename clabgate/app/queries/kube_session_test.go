@@ -116,6 +116,14 @@ spec:
 	if strings.Join(container.Args, "\x00") != strings.Join(wantArgs, "\x00") {
 		t.Fatalf("Jupyter args = %q, want %q", container.Args, wantArgs)
 	}
+	environment := make(map[string]string, len(container.Env))
+	for _, variable := range container.Env {
+		environment[variable.Name] = variable.Value
+	}
+	if environment["CMS_LABS_SESSION_ID"] != params.AttemptID ||
+		environment["CMS_LABS_CAPTURE_URL"] != "http://cms-labs-capture:8080" {
+		t.Fatalf("Jupyter capture environment = %#v", environment)
+	}
 	if _, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), workspaceName, metav1.GetOptions{}); err != nil {
 		t.Fatalf("Jupyter PVC was not created: %v", err)
 	}

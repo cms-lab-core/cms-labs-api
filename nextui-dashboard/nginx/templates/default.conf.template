@@ -1,6 +1,6 @@
 map $http_x_forwarded_proto $forwarded_proto {
-    default $http_x_forwarded_proto;
-    ""      $scheme;
+    "~*^https$" https;
+    default    $scheme;
 }
 
 server {
@@ -62,7 +62,7 @@ server {
 
     # Per-attempt terminal Service supplied by the task manifest and applied by Clabgate. It shares
     # the session-scoped HttpOnly cookie with Jupyter but resolves only inside that namespace.
-    location ~ ^/clabgate/workspace/([0-9a-f-]+)/terminal/([^/]+)(/.*)?$ {
+    location ~ "^/clabgate/workspace/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/terminal/([a-z0-9](?:[-a-z0-9]{0,61}[a-z0-9])?)(/.*)?$" {
         set $terminal_session $1;
         set $terminal_service $2;
         set $terminal_path $3;
@@ -94,9 +94,38 @@ server {
         proxy_set_header X-CMS-Identity $terminal_identity;
     }
 
+    # Per-attempt packet-capture API. The controller creates this Service only
+    # for labs declaring cms-labs-capture-config. The external prefix is removed
+    # before forwarding, so /capture/v1/targets becomes /v1/targets.
+    location ~ "^/clabgate/workspace/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/capture(/.*)?$" {
+        set $capture_session $1;
+        set $capture_path $2;
+        set $capture_target http://cms-labs-capture.lab-$capture_session.svc.cluster.local:8080;
+
+        auth_request /_clabgate_workspace_verify;
+        auth_request_set $capture_identity $upstream_http_x_cms_identity;
+
+        proxy_pass $capture_target$capture_path$is_args$args;
+        proxy_http_version 1.1;
+        proxy_connect_timeout              30s;
+        proxy_send_timeout                 90s;
+        proxy_read_timeout                 90s;
+        client_max_body_size               64k;
+        proxy_request_buffering            off;
+        proxy_buffering                    off;
+        proxy_cache                        off;
+        proxy_set_header Host              $http_host;
+        proxy_set_header X-Forwarded-Host  $http_host;
+        proxy_set_header X-Original-URI    $request_uri;
+        proxy_set_header X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header X-Real-IP         $remote_addr;
+        proxy_set_header X-Forwarded-Proto $forwarded_proto;
+        proxy_set_header X-CMS-Identity    $capture_identity;
+    }
+
     # Per-attempt JupyterLab. Every request is authorized before nginx resolves
     # and contacts the namespace-local Service.
-    location ~ ^/clabgate/workspace/([0-9a-f-]+)(/.*)?$ {
+    location ~ "^/clabgate/workspace/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})(/.*)?$" {
         set $workspace_session $1;
         set $workspace_target http://jupyter.lab-$workspace_session.svc.cluster.local:8888;
 
