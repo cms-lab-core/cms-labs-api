@@ -127,7 +127,7 @@ func handleGitLab(w http.ResponseWriter, r *http.Request) {
 	case strings.Contains(requestPath, "/repository/commits/master"):
 		writeJSON(w, map[string]string{"id": revision})
 	case strings.HasSuffix(requestPath, "/repository/tree"):
-		writeJSON(w, []map[string]string{{"path": "topology.yaml", "type": "blob"}})
+		writeJSON(w, []map[string]string{{"path": "topology.template.yaml", "type": "blob"}})
 	case strings.Contains(requestPath, "/repository/files/") && strings.HasSuffix(requestPath, "/raw"):
 		w.Header().Set("Content-Type", "application/yaml")
 		_, _ = w.Write([]byte(`apiVersion: c9s.run/v1alpha1
