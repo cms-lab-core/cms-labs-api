@@ -82,7 +82,7 @@ func handleRPC(w http.ResponseWriter, r *http.Request, state *mockState) {
 			"result": map[string]any{"model": []map[string]any{{
 				"id": 1, "attempt_id": attemptID, "user_id": 42, "user_name": "smoke-student",
 				"status": status, "server_client_id": "k8s", "lti_routing_name": "Local smoke lab",
-				"repository": "https://git.example.test/group/labs-smoke.git#main", "test_path": "", "result": result,
+				"repository": "", "test_path": "", "result": result,
 			}}},
 		})
 	case "lti_attempt.update_external":
