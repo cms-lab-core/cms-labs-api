@@ -59,6 +59,17 @@ jobs:
             --kube-context kind-cms-labs-local
           kubectl wait --for=condition=Available deployment \
             --all -n c9s --context kind-cms-labs-local --timeout=5m
+      - name: Install terminal controller
+        run: |
+          helm upgrade --install terminal \
+            oci://ghcr.io/cms-lab-core/charts/cms-labs-terminal \
+            --version 2.0.1 \
+            --namespace cms-labs-system \
+            --create-namespace \
+            --kube-context kind-cms-labs-local \
+            --set controller.proxyNamespace=cms-labs-system \
+            --wait \
+            --timeout 5m
       - name: Build smoke binaries
         run: |
           make -C clabgate build

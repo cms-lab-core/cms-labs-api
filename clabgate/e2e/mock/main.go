@@ -127,9 +127,29 @@ func handleGitLab(w http.ResponseWriter, r *http.Request) {
 	case strings.Contains(requestPath, "/repository/commits/master"):
 		writeJSON(w, map[string]string{"id": revision})
 	case strings.HasSuffix(requestPath, "/repository/tree"):
-		writeJSON(w, []map[string]string{{"path": "topology.template.yaml", "type": "blob"}})
+		writeJSON(w, []map[string]string{
+			{"path": "topology.template.yaml", "type": "blob"},
+			{"path": "terminal.template.yaml", "type": "blob"},
+		})
 	case strings.Contains(requestPath, "/repository/files/") && strings.HasSuffix(requestPath, "/raw"):
 		w.Header().Set("Content-Type", "application/yaml")
+		if strings.Contains(requestPath, "terminal.template.yaml") {
+			_, _ = w.Write([]byte(`apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cms-labs-terminal-config
+  namespace: $NAME
+  labels:
+    cms-labs.io/terminal-config: "true"
+data:
+  config.yaml: |-
+    targets:
+      - name: client
+        mode: exec
+        command: [/bin/sh]
+`))
+			return
+		}
 		_, _ = w.Write([]byte(`apiVersion: c9s.run/v1alpha1
 kind: Topology
 metadata:
@@ -143,7 +163,6 @@ spec:
           client:
             kind: linux
             image: docker.io/library/alpine:3.24
-            ttyd-shell: /bin/sh
 `))
 	default:
 		http.NotFound(w, r)

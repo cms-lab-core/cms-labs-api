@@ -37,6 +37,11 @@ kubectl wait --for=create topology/smoke \
   -n "$namespace" --context "$context" --timeout=90s >/dev/null
 kubectl wait --for=jsonpath='{.status.topologyReady}'=true topology/smoke \
   -n "$namespace" --context "$context" --timeout=90s >/dev/null
+kubectl wait --for=create deployment/cms-labs-terminal \
+  -n "$namespace" --context "$context" --timeout=90s >/dev/null
+kubectl wait --for=condition=Available deployment/cms-labs-terminal \
+  -n "$namespace" --context "$context" --timeout=90s >/dev/null
+kubectl get service/client-terminal -n "$namespace" --context "$context" >/dev/null
 kubectl get pvc/jupyter service/jupyter -n "$namespace" --context "$context" >/dev/null
 
 desired_replicas=$(kubectl get deployment/clabgate -n cms-labs-system \
