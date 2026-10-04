@@ -15,8 +15,9 @@ make dev-up
 ```
 
 This starts the existing Compose dependencies, creates (or reuses)
-`cms-labs-local`, installs the CMS Labs Clabernetes chart `0.8.0-4`, creates
-the `cms-labs-system` namespace and installs the development gateway. The two
+`cms-labs-local`, installs the official Clabernetes chart `0.9.0`, the
+`cms-labs-terminal` and `cms-labs-capture` controllers, creates the
+`cms-labs-system` namespace and installs the development gateway. The two
 equivalent direct cluster commands are:
 
 ```bash
@@ -53,6 +54,11 @@ The gateway does not maintain a copy of the production proxy rules. During
 include is replaced with a Vite proxy. Re-run `up.sh --dev` after changing the
 nginx template. Running `up.sh` without either flag leaves the gateway out and
 is suitable for the image-based smoke environment.
+
+The controller chart references and versions can be overridden with
+`CMS_LABS_TERMINAL_CHART`, `CMS_LABS_TERMINAL_CHART_VERSION`,
+`CMS_LABS_CAPTURE_CHART` and `CMS_LABS_CAPTURE_CHART_VERSION`. By default the
+bootstrap uses the same published controller releases as the example task.
 
 To remove the local dependencies and disposable cluster:
 
@@ -112,7 +118,7 @@ kind create cluster \
 
 helm upgrade --install clabernetes \
   oci://ghcr.io/clabernetes/clabernetes/clabernetes \
-  --version 0.0.0 \
+  --version 0.9.0 \
   --namespace c9s \
   --create-namespace \
   --kube-context kind-cms-labs-local

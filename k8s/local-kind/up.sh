@@ -7,8 +7,13 @@ context="kind-$cluster_name"
 state_dir=${CMS_LABS_DEV_STATE_DIR:-$repo_root/.local}
 kubeconfig="$state_dir/kubeconfig"
 node_image=${KIND_NODE_IMAGE:-kindest/node:v1.33.12@sha256:3f5c8443c620245e4d355cfe09e96a91ead32ceaa569d3f1ca9edf0cb2fe2ff4}
-chart=${CLABERNETES_CHART:-oci://ghcr.io/cms-lab-core/cms-labs-clabernetes/clabernetes}
-chart_version=${CLABERNETES_CHART_VERSION:-0.0.0}
+chart=${CLABERNETES_CHART:-oci://ghcr.io/clabernetes/clabernetes/clabernetes}
+chart_version=${CLABERNETES_CHART_VERSION:-0.9.0}
+terminal_chart=${CMS_LABS_TERMINAL_CHART:-oci://ghcr.io/cms-lab-core/charts/cms-labs-terminal}
+terminal_chart_version=${CMS_LABS_TERMINAL_CHART_VERSION:-2.0.1}
+capture_chart=${CMS_LABS_CAPTURE_CHART:-oci://ghcr.io/maintainer64/charts/cms-labs-capture}
+capture_chart_version=${CMS_LABS_CAPTURE_CHART_VERSION:-0.1.1}
+controllers_namespace=${CMS_LABS_CONTROLLERS_NAMESPACE:-cms-labs-system}
 dev_mode=false
 
 usage() {
@@ -74,6 +79,26 @@ helm upgrade --install clabernetes "$chart" \
   --kubeconfig "$kubeconfig" \
   --kube-context "$context"
 
+helm upgrade --install terminal "$terminal_chart" \
+  --version "$terminal_chart_version" \
+  --namespace "$controllers_namespace" \
+  --create-namespace \
+  --kubeconfig "$kubeconfig" \
+  --kube-context "$context" \
+  --set "controller.proxyNamespace=$controllers_namespace" \
+  --wait \
+  --timeout 5m
+
+helm upgrade --install capture "$capture_chart" \
+  --version "$capture_chart_version" \
+  --namespace "$controllers_namespace" \
+  --create-namespace \
+  --kubeconfig "$kubeconfig" \
+  --kube-context "$context" \
+  --set "controller.proxyNamespace=$controllers_namespace" \
+  --wait \
+  --timeout 5m
+
 kubectl apply --kubeconfig "$kubeconfig" --context "$context" -f "$repo_root/k8s/local-kind/dev.yaml"
 if [ "$dev_mode" = true ]; then
   host_gateway=$(docker exec "${cluster_name}-control-plane" getent hosts host.docker.internal 2>/dev/null | awk 'NR == 1 { print $1 }')
@@ -120,6 +145,12 @@ fi
 kubectl wait --for=condition=Available deployment \
   --all \
   --namespace c9s \
+  --kubeconfig "$kubeconfig" \
+  --context "$context" \
+  --timeout=5m
+kubectl wait --for=condition=Available deployment \
+  --all \
+  --namespace "$controllers_namespace" \
   --kubeconfig "$kubeconfig" \
   --context "$context" \
   --timeout=5m
