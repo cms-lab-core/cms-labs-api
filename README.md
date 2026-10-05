@@ -15,7 +15,7 @@
 - `ghcr.io/cms-lab-core/cms-labs-api/clabgate`;
 - `ghcr.io/cms-lab-core/cms-labs-api/frontend`.
 
-Стабильный контур `v1.1.3` использует эти образы с тегом `1.1.3`, standalone Jupyter `1.0.0`, checker `1.0.1` и OCI chart форка Clabernetes `0.0.0`. Mutable-тег `latest` остаётся только каналом разработки.
+Стабильный контур использует образы релизного тега `vX.Y.Z`. Mutable-тег `latest` обновляется только при публикации Git tag `v*` и соответствует последнему стабильному релизу; push в ветку его не изменяет.
 
 Проверки лабораторных изолированы в отдельном Go-репозитории
 [`cms-labs-checker`](https://github.com/cms-lab-core/cms-labs-checker). Он

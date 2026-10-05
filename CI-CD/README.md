@@ -23,7 +23,7 @@ ghcr.io/cms-lab-core/cms-labs-api/clabgate
 ghcr.io/cms-lab-core/cms-labs-api/frontend
 ```
 
-Для каждой ветки создаётся одноимённый tag (`main`, `pre`, `stage`), для каждого commit — `sha-<short-sha>`, для Git tag `v1.2.3` — `v1.2.3`. Default branch также получает `latest`. Вместе с опубликованными образами BuildKit генерирует provenance и SBOM.
+Для каждой ветки создаётся одноимённый tag (`main`, `pre`, `stage`), для каждого commit — `sha-<short-sha>`, для Git tag `v1.2.3` — `v1.2.3`. Стабильный mutable alias `latest` обновляется только при push Git tag `v*`; push ветки его не изменяет. Вместе с опубликованными образами BuildKit генерирует provenance и SBOM.
 
 Workflow использует стандартный `GITHUB_TOKEN`; отдельный пароль GHCR не нужен. Если образы должны скачиваться Kubernetes без `imagePullSecret`, GitHub Packages нужно сделать public.
 
