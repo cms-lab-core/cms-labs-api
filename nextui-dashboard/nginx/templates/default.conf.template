@@ -17,7 +17,7 @@ map $request_uri $workspace_auth_session_id {
 proxy_cache_path /var/cache/nginx/workspace-auth
     keys_zone=workspace_auth:1m
     max_size=16m
-    inactive=2m
+    inactive=10m
     use_temp_path=off;
 
 server {
@@ -67,7 +67,7 @@ server {
         proxy_set_header Cookie $http_cookie;
         proxy_cache workspace_auth;
         proxy_cache_key "$cookie_clabgate_workspace:$workspace_auth_session_id";
-        proxy_cache_valid 204 1m;
+        proxy_cache_valid 204 5m;
         proxy_cache_lock on;
         proxy_cache_lock_timeout 5s;
         proxy_cache_lock_age 5s;

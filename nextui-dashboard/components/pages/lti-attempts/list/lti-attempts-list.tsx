@@ -48,7 +48,7 @@ export const LTIAttemptsListPage = () => {
     };
   }, [searchParams]);
 
-  const [selectedAttempts, setSelectedAttempts] = useState<Set<string | number>>(new Set());
+  const [selectedAttempts, setSelectedAttempts] = useState<Set<string>>(new Set());
   const [bulkTerminating, setBulkTerminating] = useState(false);
 
   const selectedStatuses = queryParams.statuses;
@@ -84,7 +84,7 @@ export const LTIAttemptsListPage = () => {
   });
 
   const rows = response?.data?.pages.flatMap((p) => p?.model ?? []) || [];
-  const totalCount = (response.data?.pages[0] as any)?.totalCount ?? 0;
+  const totalCount = response.data?.pages[0]?.totalCount ?? 0;
   const hasSelection = selectedAttempts.size > 0;
 
   const bulkTerminatingMutation = useMutationLtiAttemptUpdate();
@@ -94,7 +94,7 @@ export const LTIAttemptsListPage = () => {
     if (attempts.length === 0 || bulkTerminating) return;
 
     setBulkTerminating(true);
-    const failed = new Set<string | number>();
+    const failed = new Set<string>();
     let firstError = '';
     for (const selectedID of attempts) {
       try {

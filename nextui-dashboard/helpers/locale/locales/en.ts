@@ -591,7 +591,7 @@ const en = {
     NoDescription: 'No description has been provided yet.',
     Collaboration: 'Participants',
     Start: 'Start',
-    Continue: 'Continue',
+    Connect: 'Connect',
     StartError: 'Unable to create an attempt. Please try again.'
   },
   Topology: {

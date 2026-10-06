@@ -11,8 +11,8 @@ interface Props {
   isLoading?: boolean;
   isInitialLoading?: boolean;
   rows?: CamelCasedPropertiesDeep<ModelsLTIAttemptListItem>[];
-  selectedKeys?: Set<string | number>;
-  onSelectionChange?: (keys: Set<string | number>) => void;
+  selectedKeys?: Set<string>;
+  onSelectionChange?: (keys: Set<string>) => void;
 }
 
 export const LTIAttemptTableWrapper = ({ rows, isLoading, loadMore, selectedKeys, onSelectionChange }: Props) => {
@@ -30,20 +30,13 @@ export const LTIAttemptTableWrapper = ({ rows, isLoading, loadMore, selectedKeys
 
   const handleSelectionChange = (keys: 'all' | Set<React.Key>) => {
     if (keys === 'all') {
-      const allKeys = new Set<string | number>();
+      const allKeys = new Set<string>();
       rows?.forEach((row) => {
-        if (row.id) allKeys.add(row.id);
+        if (row.id !== undefined) allKeys.add(String(row.id));
       });
       onSelectionChange?.(allKeys);
     } else {
-      onSelectionChange?.(
-        new Set(
-          Array.from(keys)
-            .map(String)
-            .map(Number)
-            .filter((n) => !isNaN(n))
-        )
-      );
+      onSelectionChange?.(new Set(Array.from(keys, String)));
     }
   };
 
@@ -70,7 +63,7 @@ export const LTIAttemptTableWrapper = ({ rows, isLoading, loadMore, selectedKeys
           </TableHeader>
           <TableBody items={rows ?? []}>
             {(item) => (
-              <TableRow key={item.id}>
+              <TableRow key={String(item.id)}>
                 {(columnKey) => (
                   <TableCell>
                     {RenderCell({

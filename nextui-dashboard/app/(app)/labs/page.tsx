@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { Button, Card, CardBody, Chip, Input, Spinner } from '@heroui/react';
-import { BookOpen, GitBranch, Network, Play, Search, Users } from 'lucide-react';
+import { BookOpen, GitBranch, LogIn, Network, Play, Search, Users } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Layout } from '@/components/layout/layout';
 import { RoutesLocation } from '@/components/routes';
@@ -118,11 +118,13 @@ const LabCatalogPage = () => {
                     </div>
                     <Button
                       color='primary'
-                      startContent={!isStarting && <Play className='h-4 w-4' />}
+                      startContent={
+                        !isStarting && (lab.attempt ? <LogIn className='h-4 w-4' /> : <Play className='h-4 w-4' />)
+                      }
                       isLoading={isStarting}
                       onPress={() => openLab(lab.id, lab.attempt?.id)}
                     >
-                      {lab.attempt ? copy.Continue : copy.Start}
+                      {lab.attempt ? copy.Connect : copy.Start}
                     </Button>
                   </CardBody>
                 </Card>

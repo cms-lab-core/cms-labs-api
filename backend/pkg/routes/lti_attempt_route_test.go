@@ -203,6 +203,7 @@ func TestV1LTIAttemptListExternalFilterByStatuses(t *testing.T) {
 
 	assert.Equal(t, expectedCode, statusCode)
 	assert.Equal(t, 1, len(bodyModel.Result.Model))
+	assert.Equal(t, int64(1), bodyModel.Result.TotalCount)
 	assert.Equal(t, models.AttemptStatusActive, bodyModel.Result.Model[0].Status)
 }
 
@@ -228,6 +229,7 @@ func TestV1LTIAttemptListExternalFilterByMultipleStatuses(t *testing.T) {
 
 	assert.Equal(t, expectedCode, statusCode)
 	assert.Equal(t, 2, len(bodyModel.Result.Model))
+	assert.Equal(t, int64(2), bodyModel.Result.TotalCount)
 }
 
 func TestV1LTIAttemptListExternalFilterByServerClientIDs(t *testing.T) {
@@ -275,6 +277,7 @@ func TestV1LTIAttemptListExternalFilterByLimit(t *testing.T) {
 
 	assert.Equal(t, expectedCode, statusCode)
 	assert.LessOrEqual(t, len(bodyModel.Result.Model), 1)
+	assert.Equal(t, int64(len(fix.attempts)), bodyModel.Result.TotalCount)
 }
 
 func TestV1LTIAttemptListExternalFilterByOffset(t *testing.T) {

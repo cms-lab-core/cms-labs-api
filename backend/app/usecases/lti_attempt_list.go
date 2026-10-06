@@ -17,7 +17,8 @@ type LTIAttemptListRequest struct {
 }
 
 type LTIAttemptListOutputDTO struct {
-	Model []models.LTIAttemptListItem `json:"model" validate:"required"`
+	Model      []models.LTIAttemptListItem `json:"model" validate:"required"`
+	TotalCount int64                       `json:"total_count" validate:"required"`
 }
 
 type LTIAttemptListResponse struct {
@@ -28,8 +29,9 @@ type LTIAttemptListResponse struct {
 }
 
 func (u *LTIAttemptListUC) Execute(dto queries.LTIAttemptSearchParams) (LTIAttemptListOutputDTO, error) {
-	entities, err := u.LTIAttemptQueries.List(&dto)
+	entities, count, err := u.LTIAttemptQueries.List(&dto)
 	return LTIAttemptListOutputDTO{
-		Model: entities,
+		Model:      entities,
+		TotalCount: count,
 	}, err
 }

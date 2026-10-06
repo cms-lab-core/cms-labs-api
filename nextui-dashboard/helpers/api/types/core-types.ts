@@ -254,14 +254,15 @@ export interface ModelsLTIAttemptListItem {
   attempt_id: string;
   created_at: string;
   id?: number;
-  labs_path?: string;
   lti_routing_id?: number;
   lti_routing_name?: string;
+  repository?: string;
   result?: object;
   server_id?: number;
   server_name?: string;
   status: string;
   synchronized_at?: string;
+  test_path?: string;
   updated_at: string;
   user_email?: string;
   user_id?: number;
@@ -274,6 +275,11 @@ export interface ModelsLTIRouting {
   created_at: string;
   id?: number;
   is_default?: boolean;
+  /**
+   * LabsPath holds the Git link of the laboratory with an optional `#ref`
+   * fragment, for example https://git.example.org/course/lab.git#main.
+   * The manifests are read from the repository root.
+   */
   labs_path?: string;
   /**
    * The type of PNETLabsType, cms_client.PNETLabsTypeDefault
@@ -812,6 +818,7 @@ export interface UsecasesLTIAttemptGetResponse {
 
 export interface UsecasesLTIAttemptListOutputDTO {
   model: ModelsLTIAttemptListItem[];
+  total_count: number;
 }
 
 export interface UsecasesLTIAttemptListRequest {

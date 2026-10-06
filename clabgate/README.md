@@ -169,7 +169,7 @@ Reconciler валидирует диапазон оценки, добавляе�
 | `JUPYTER_STORAGE_SIZE`                   | размер PVC, `1Gi`                                                                                                    |
 | `WORKSPACE_PROXY_PREFIX`                 | URL prefix Jupyter, `/clabgate/workspace`                                                                            |
 | `WORKSPACE_AUTH_SECRET`                  | общий для replicas HMAC secret, минимум 32 байта; обязателен для `session.open`                                      |
-| `WORKSPACE_GRANT_TTL_SECONDS`            | TTL одноцелевого grant, `60`                                                                                         |
+| `WORKSPACE_GRANT_TTL_SECONDS`            | TTL одноцелевого grant, `300`                                                                                        |
 | `WORKSPACE_COOKIE_TTL_SECONDS`           | TTL scoped HttpOnly cookie, `3600`                                                                                   |
 | `WORKSPACE_COOKIE_SECURE`                | передавать workspace cookie только по HTTPS, `true`; `false` допустимо только для loopback demo                      |
 | `SESSION_RECONCILE_INTERVAL_SECONDS`     | начальный период сверки Kubernetes/CMS, `30`                                                                         |

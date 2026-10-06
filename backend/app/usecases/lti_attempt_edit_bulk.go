@@ -99,7 +99,7 @@ func (u *LTIAttemptEditBulkUC) Execute(dto LTIAttemptEditBulkInputDTO) (LTIAttem
 		attemptIds = append(attemptIds, attemptDTO.AttemptID)
 		processed++
 	}
-	activeAttempts, _ := u.LTIAttemptQueries.List(
+	activeAttempts, _, _ := u.LTIAttemptQueries.List(
 		&queries.LTIAttemptSearchParams{
 			Statuses:        []string{models.AttemptStatusActive},
 			ServerClientIds: []string{serverEntity.ClientID},

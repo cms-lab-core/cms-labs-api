@@ -61,7 +61,7 @@ func (c *AppConfigModel) Reload() {
 		JupyterStorage:          getEnvDefault("JUPYTER_STORAGE_SIZE", "1Gi"),
 		WorkspacePrefix:         getEnvDefault("WORKSPACE_PROXY_PREFIX", "/clabgate/workspace"),
 		WorkspaceSecret:         os.Getenv("WORKSPACE_AUTH_SECRET"),
-		WorkspaceGrantTTL:       getEnvInt64Default("WORKSPACE_GRANT_TTL_SECONDS", 60),
+		WorkspaceGrantTTL:       getEnvInt64Default("WORKSPACE_GRANT_TTL_SECONDS", 300),
 		WorkspaceCookieTTL:      getEnvInt64Default("WORKSPACE_COOKIE_TTL_SECONDS", 3600),
 		WorkspaceCookieSecure:   getEnvBoolDefault("WORKSPACE_COOKIE_SECURE", true),
 		ReconcileSeconds:        getEnvInt64Default("SESSION_RECONCILE_INTERVAL_SECONDS", 30),

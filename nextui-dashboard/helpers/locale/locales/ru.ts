@@ -592,7 +592,7 @@ const ru = {
     NoDescription: 'Описание пока не добавлено.',
     Collaboration: 'Участников',
     Start: 'Запустить',
-    Continue: 'Продолжить',
+    Connect: 'Подключиться',
     StartError: 'Не удалось создать попытку. Попробуйте ещё раз.'
   },
   Topology: {

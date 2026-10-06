@@ -83,18 +83,31 @@ func (u *LabCatalogUC) List(dto LabCatalogListInputDTO) (LabCatalogListOutputDTO
 	if err != nil {
 		return LabCatalogListOutputDTO{}, err
 	}
+	routeIDs := make([]uint, 0, len(routes))
+	for _, route := range routes {
+		routeIDs = append(routeIDs, route.ID)
+	}
+	attempts, err := u.LTIAttemptQueries.ListActiveByUserID(u.user.UserID(), routeIDs)
+	if err != nil {
+		return LabCatalogListOutputDTO{}, err
+	}
+	attemptsByRoute := make(map[uint]LabCatalogAttemptDTO, len(attempts))
+	for _, attempt := range attempts {
+		if _, exists := attemptsByRoute[attempt.LTIRoutingID]; exists {
+			continue
+		}
+		attemptsByRoute[attempt.LTIRoutingID] = LabCatalogAttemptDTO{
+			ID: attempt.AttemptID, Status: attempt.Status,
+		}
+	}
 	items := make([]LabCatalogItemDTO, 0, len(routes))
 	for _, route := range routes {
 		item := LabCatalogItemDTO{
 			ID: route.ID, Name: route.Name, Description: route.LTIDescription,
 			Collaboration: route.Collaboration, Repository: route.LabsPath,
 		}
-		attempt, attemptErr := u.LTIAttemptQueries.GetActiveByUserId(u.user.UserID(), route.ID)
-		if attemptErr != nil {
-			return LabCatalogListOutputDTO{}, attemptErr
-		}
-		if attempt.ID != 0 {
-			item.Attempt = &LabCatalogAttemptDTO{ID: attempt.AttemptID, Status: attempt.Status}
+		if attempt, exists := attemptsByRoute[route.ID]; exists {
+			item.Attempt = &attempt
 		}
 		items = append(items, item)
 	}

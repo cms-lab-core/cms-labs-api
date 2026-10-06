@@ -47,11 +47,19 @@ func TestLabCatalogListAndIdempotentStart(t *testing.T) {
 				ID         uint   `json:"id"`
 				Name       string `json:"name"`
 				Repository string `json:"repository"`
+				Attempt    *struct {
+					ID string `json:"id"`
+				} `json:"attempt"`
 			} `json:"labs"`
 		} `json:"result"`
 	}
 	if err := json.Unmarshal([]byte(body), &listResponse); err != nil {
 		t.Fatal(err)
+	}
+	for i := 1; i < len(listResponse.Result.Labs); i++ {
+		if listResponse.Result.Labs[i-1].ID > listResponse.Result.Labs[i].ID {
+			t.Fatalf("catalog is not ordered by id: %s", body)
+		}
 	}
 	found := false
 	for _, lab := range listResponse.Result.Labs {
@@ -89,6 +97,26 @@ func TestLabCatalogListAndIdempotentStart(t *testing.T) {
 	firstAttemptID := start()
 	if secondAttemptID := start(); secondAttemptID != firstAttemptID {
 		t.Fatalf("start is not idempotent: %q != %q", firstAttemptID, secondAttemptID)
+	}
+	status, body = f.Rpc(&TestRpcRequest{Method: "lab_catalog.list", Params: map[string]any{}, Authorization: authorization})
+	if status != 200 {
+		t.Fatalf("list after start status=%d body=%s", status, body)
+	}
+	if err := json.Unmarshal([]byte(body), &listResponse); err != nil {
+		t.Fatal(err)
+	}
+	found = false
+	for _, lab := range listResponse.Result.Labs {
+		if lab.ID != route.ID {
+			continue
+		}
+		found = true
+		if lab.Attempt == nil || lab.Attempt.ID != firstAttemptID {
+			t.Fatalf("active attempt is missing from catalog item: %#v", lab)
+		}
+	}
+	if !found {
+		t.Fatalf("catalog route %q is missing after start: %s", route.Name, body)
 	}
 	defer f.DB.Where("attempt_id = ?", firstAttemptID).Delete(&models.LTIAttempt{})
 }

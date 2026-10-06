@@ -116,6 +116,20 @@ func (q *LTIAttemptQueries) GetActiveByUserId(userId uint, routeId uint) (models
 	return entity, result.Error
 }
 
+func (q *LTIAttemptQueries) ListActiveByUserID(userID uint, routeIDs []uint) ([]models.LTIAttempt, error) {
+	entities := make([]models.LTIAttempt, 0)
+	if len(routeIDs) == 0 {
+		return entities, nil
+	}
+	result := q.DB.Where(
+		"user_id = ? AND lti_routing_id IN (?) AND status IN (?)",
+		userID,
+		routeIDs,
+		[]string{models.AttemptStatusPending, models.AttemptStatusActive},
+	).Order("created_at DESC").Find(&entities)
+	return entities, result.Error
+}
+
 func (q *LTIAttemptQueries) GetByRoomID(roomID uint) ([]models.LTIAttempt, error) {
 	var entities []models.LTIAttempt
 	if roomID == 0 {
@@ -133,21 +147,27 @@ func (q *LTIAttemptQueries) GetByRoomID(roomID uint) ([]models.LTIAttempt, error
 
 func (q *LTIAttemptQueries) List(
 	search *LTIAttemptSearchParams,
-) ([]models.LTIAttemptListItem, error) {
+) ([]models.LTIAttemptListItem, int64, error) {
+	var count int64
+	countResult := q.listFilter(search, q.DB).Count(&count)
+	if countResult.Error != nil {
+		return nil, 0, countResult.Error
+	}
+
 	var entities []models.LTIAttemptListItem
 	result := q.listFilter(
 		search,
 		q.DB.Limit(search.Limit).Offset(search.Offset),
-	).Find(&entities)
-	return entities, result.Error
+	).Select(
+		"lti_attempts.id, lti_attempts.attempt_id, lti_attempts.status, lti_attempts.result, lti_attempts.user_id, lti_attempts.server_id, lti_attempts.lti_routing_id, lti_attempts.id, lti_attempts.synchronized_at, lti_attempts.created_at, lti_attempts.updated_at, " +
+			"user.email as user_email, user.name as user_name, servers.name as server_name, lti_routings.name as lti_routing_name, lti_routings.labs_path as repository, lti_routings.test_path as test_path",
+	).Order(`lti_attempts.created_at desc`).Find(&entities)
+	return entities, count, result.Error
 }
 
 func (q *LTIAttemptQueries) listFilter(search *LTIAttemptSearchParams, tx *gorm.DB) *gorm.DB {
 	tx = tx.Table(
 		q.tableName(&models.LTIAttempt{}) + " AS lti_attempts",
-	).Select(
-		"lti_attempts.id, lti_attempts.attempt_id, lti_attempts.status, lti_attempts.result, lti_attempts.user_id, lti_attempts.server_id, lti_attempts.lti_routing_id, lti_attempts.id, lti_attempts.synchronized_at, lti_attempts.created_at, lti_attempts.updated_at, " +
-			"user.email as user_email, user.name as user_name, servers.name as server_name, lti_routings.name as lti_routing_name, lti_routings.labs_path as repository, lti_routings.test_path as test_path",
 	).Joins(
 		"join " + q.tableName(&models.User{}) + " user on user.id = lti_attempts.user_id",
 	).Joins(
@@ -155,7 +175,6 @@ func (q *LTIAttemptQueries) listFilter(search *LTIAttemptSearchParams, tx *gorm.
 	).Joins(
 		"join " + q.tableName(&models.LTIRouting{}) + " lti_routings on lti_routings.id = lti_attempts.lti_routing_id",
 	)
-	tx = tx.Order(`lti_attempts.created_at desc`)
 	if len(search.UserIds) > 0 {
 		tx = tx.Where("lti_attempts.user_id IN (?)", search.UserIds)
 	}

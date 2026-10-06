@@ -2907,13 +2907,13 @@ const docTemplate = `{
                 "id": {
                     "type": "integer"
                 },
-                "labs_path": {
-                    "type": "string"
-                },
                 "lti_routing_id": {
                     "type": "integer"
                 },
                 "lti_routing_name": {
+                    "type": "string"
+                },
+                "repository": {
                     "type": "string"
                 },
                 "result": {
@@ -2929,6 +2929,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "synchronized_at": {
+                    "type": "string"
+                },
+                "test_path": {
                     "type": "string"
                 },
                 "updated_at": {
@@ -2966,6 +2969,7 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "labs_path": {
+                    "description": "LabsPath holds the Git link of the laboratory with an optional ` + "`" + `#ref` + "`" + `\nfragment, for example https://git.example.org/course/lab.git#main.\nThe manifests are read from the repository root.",
                     "type": "string"
                 },
                 "labs_type": {
@@ -4279,7 +4283,8 @@ const docTemplate = `{
         "usecases.LTIAttemptListOutputDTO": {
             "type": "object",
             "required": [
-                "model"
+                "model",
+                "total_count"
             ],
             "properties": {
                 "model": {
@@ -4287,6 +4292,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/models.LTIAttemptListItem"
                     }
+                },
+                "total_count": {
+                    "type": "integer"
                 }
             }
         },

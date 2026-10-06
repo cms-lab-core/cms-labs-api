@@ -413,11 +413,11 @@ definitions:
         type: string
       id:
         type: integer
-      labs_path:
-        type: string
       lti_routing_id:
         type: integer
       lti_routing_name:
+        type: string
+      repository:
         type: string
       result:
         type: object
@@ -428,6 +428,8 @@ definitions:
       status:
         type: string
       synchronized_at:
+        type: string
+      test_path:
         type: string
       updated_at:
         type: string
@@ -455,6 +457,10 @@ definitions:
       is_default:
         type: boolean
       labs_path:
+        description: |-
+          LabsPath holds the Git link of the laboratory with an optional `#ref`
+          fragment, for example https://git.example.org/course/lab.git#main.
+          The manifests are read from the repository root.
         type: string
       labs_type:
         description: |-
@@ -1368,8 +1374,11 @@ definitions:
         items:
           $ref: '#/definitions/models.LTIAttemptListItem'
         type: array
+      total_count:
+        type: integer
     required:
     - model
+    - total_count
     type: object
   usecases.LTIAttemptListRequest:
     properties:
