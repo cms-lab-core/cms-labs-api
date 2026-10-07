@@ -121,8 +121,11 @@ spec:
 		environment[variable.Name] = variable.Value
 	}
 	if environment["CMS_LABS_SESSION_ID"] != params.AttemptID ||
-		environment["CMS_LABS_CAPTURE_URL"] != "http://cms-labs-capture:8080" {
-		t.Fatalf("Jupyter capture environment = %#v", environment)
+		environment["CMS_LABS_CAPTURE_URL"] != "http://cms-labs-capture:8080" ||
+		environment["CMS_LABS_TASK_URL"] != params.TaskRepository ||
+		environment["CMS_LABS_TASK_REF"] != params.TaskRef ||
+		environment["CMS_LABS_TASK_DIR"] != SessionWorkspaceTaskDirectory {
+		t.Fatalf("Jupyter environment = %#v", environment)
 	}
 	if _, err := client.CoreV1().PersistentVolumeClaims(namespace).Get(context.Background(), workspaceName, metav1.GetOptions{}); err != nil {
 		t.Fatalf("Jupyter PVC was not created: %v", err)
@@ -411,27 +414,9 @@ func TestBuildWorkspaceURL(t *testing.T) {
 		"https://git.example.test/group/cms-labs-simple-task.git",
 		"main",
 	)
-	for _, expectedPart := range []string{
-		"/clabgate/workspace/00000000-0000-0000-0000-000000000000/git-pull?",
-		"app=lab",
-		"branch=main",
-		"repo=https%3A%2F%2Fgit.example.test%2Fgroup%2Fcms-labs-simple-task.git",
-		"targetpath=task",
-	} {
-		if !strings.Contains(got, expectedPart) {
-			t.Fatalf("workspace URL %q does not contain %q", got, expectedPart)
-		}
-	}
-	// app must stay "lab": nbgitpuller otherwise defaults to its "notebook"
-	// app and redirects to /tree/task, serving the classic Notebook browser
-	// instead of JupyterLab. A "notebook" value would pin that regression.
-	if strings.Contains(got, "app=notebook") {
-		t.Fatalf("workspace URL asks nbgitpuller for the classic Notebook UI: %q", got)
-	}
-	// No urlpath may pin a directory that does not exist inside the clone, and
-	// the only directory in the URL is the fixed task directory.
-	if strings.Contains(got, "urlpath") || strings.Contains(got, "tree%2F") {
-		t.Fatalf("workspace URL pins a directory inside the clone: %q", got)
+	want := "/clabgate/workspace/00000000-0000-0000-0000-000000000000/lab/tree/task"
+	if got != want {
+		t.Fatalf("buildWorkspaceURL() = %q, want %q", got, want)
 	}
 }
 
@@ -448,7 +433,7 @@ func TestBuildWorkspaceURLFallsBackToLabWithoutRepository(t *testing.T) {
 	}
 }
 
-func TestReadySessionUsesRepositoryBranchForNBGitPuller(t *testing.T) {
+func TestReadySessionOpensPreloadedTaskDirectory(t *testing.T) {
 	replicas := int32(1)
 	client := kubernetesfake.NewSimpleClientset(
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{
@@ -483,11 +468,9 @@ func TestReadySessionUsesRepositoryBranchForNBGitPuller(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetSession returned error: %v", err)
 	}
-	if !strings.Contains(record.WorkspaceURL, "branch=main") {
-		t.Fatalf("workspace URL does not use repository branch: %q", record.WorkspaceURL)
-	}
-	if strings.Contains(record.WorkspaceURL, "d3136b13c7ae361eda4eaf16efd93d666b9bff0a") {
-		t.Fatalf("workspace URL incorrectly uses commit SHA as nbgitpuller branch: %q", record.WorkspaceURL)
+	want := "/clabgate/workspace/00000000-0000-0000-0000-000000000000/lab/tree/task"
+	if record.WorkspaceURL != want {
+		t.Fatalf("workspace URL = %q, want %q", record.WorkspaceURL, want)
 	}
 }
 

@@ -63,7 +63,7 @@ jobs:
         run: |
           helm upgrade --install terminal \
             oci://ghcr.io/cms-lab-core/charts/cms-labs-terminal \
-            --version 2.0.1 \
+            --version '^2.0.0' \
             --namespace cms-labs-system \
             --create-namespace \
             --kube-context kind-cms-labs-local \
@@ -71,8 +71,8 @@ jobs:
             --wait \
             --timeout 5m
           helm upgrade --install capture \
-            oci://ghcr.io/maintainer64/charts/cms-labs-capture \
-            --version 0.1.1 \
+            oci://ghcr.io/cms-lab-core/charts/cms-labs-capture \
+            --version '^0.1.0' \
             --namespace cms-labs-system \
             --create-namespace \
             --kube-context kind-cms-labs-local \

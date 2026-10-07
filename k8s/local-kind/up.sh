@@ -10,9 +10,9 @@ node_image=${KIND_NODE_IMAGE:-kindest/node:v1.33.12@sha256:3f5c8443c620245e4d355
 chart=${CLABERNETES_CHART:-oci://ghcr.io/clabernetes/clabernetes/clabernetes}
 chart_version=${CLABERNETES_CHART_VERSION:-0.9.0}
 terminal_chart=${CMS_LABS_TERMINAL_CHART:-oci://ghcr.io/cms-lab-core/charts/cms-labs-terminal}
-terminal_chart_version=${CMS_LABS_TERMINAL_CHART_VERSION:-2.0.1}
-capture_chart=${CMS_LABS_CAPTURE_CHART:-oci://ghcr.io/maintainer64/charts/cms-labs-capture}
-capture_chart_version=${CMS_LABS_CAPTURE_CHART_VERSION:-0.1.1}
+terminal_chart_version=${CMS_LABS_TERMINAL_CHART_VERSION:-^2.0.0}
+capture_chart=${CMS_LABS_CAPTURE_CHART:-oci://ghcr.io/cms-lab-core/charts/cms-labs-capture}
+capture_chart_version=${CMS_LABS_CAPTURE_CHART_VERSION:-^0.1.0}
 controllers_namespace=${CMS_LABS_CONTROLLERS_NAMESPACE:-cms-labs-system}
 dev_mode=false
 

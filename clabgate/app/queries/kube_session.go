@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net/url"
 	"sort"
 	"strings"
 	"time"
@@ -349,6 +348,9 @@ func (k *KubernetesAdminQuery) ensureWorkspace(
 							{Name: "ATTEMPT_ID", Value: params.AttemptID},
 							{Name: "CMS_LABS_SESSION_ID", Value: params.AttemptID},
 							{Name: "CMS_LABS_CAPTURE_URL", Value: "http://cms-labs-capture:8080"},
+							{Name: "CMS_LABS_TASK_URL", Value: params.TaskRepository},
+							{Name: "CMS_LABS_TASK_REF", Value: params.TaskRef},
+							{Name: "CMS_LABS_TASK_DIR", Value: SessionWorkspaceTaskDirectory},
 							{Name: "JUPYTER_ENABLE_LAB", Value: "yes"},
 						},
 						Ports:          []corev1.ContainerPort{{Name: "http", ContainerPort: 8888}},
@@ -822,34 +824,20 @@ func (k *KubernetesAdminQuery) MarkSessionPhase(ctx context.Context, namespaceNa
 	return err
 }
 
-// SessionWorkspaceTaskDirectory is the single directory nbgitpuller clones the
-// lab repository into. A fixed name keeps the workspace stable across routing
-// changes and keeps the repository basename out of the learner's file browser.
+// SessionWorkspaceTaskDirectory is the single directory gitpuller clones the
+// lab repository into before JupyterLab starts. A fixed name keeps the workspace
+// stable across routing changes and hides the repository basename.
 const SessionWorkspaceTaskDirectory = "task"
 
-// SessionWorkspaceApplication is the nbgitpuller "app" parameter. Without it
-// nbgitpuller falls back to its NBGITPULLER_APP default of "notebook" and
-// redirects to /tree/task, which serves the classic Notebook file browser
-// instead of JupyterLab. Naming "lab" keeps the redirect on /lab/tree/task.
-const SessionWorkspaceApplication = "lab"
-
-// buildWorkspaceURL asks nbgitpuller to sync the repository into a fixed task
-// directory and then to open that directory in JupyterLab. nbgitpuller derives
-// its redirect target from the targetpath alone when urlpath is absent, so the
-// repository root is opened instead of a directory named after the repository,
-// and app=lab keeps that redirect on JupyterLab rather than classic Notebook.
+// buildWorkspaceURL opens the task directory that the image startup hook has
+// synchronized before JupyterLab starts. Avoiding the browser git-pull handler
+// ensures the generated task launcher exists on the first page load.
 func buildWorkspaceURL(prefix, sessionID, repository, ref string) string {
 	base := strings.TrimRight(prefix, "/") + "/" + sessionID
 	if strings.TrimSpace(repository) == "" || strings.TrimSpace(ref) == "" {
 		return base + "/lab"
 	}
-	query := url.Values{
-		"repo":       []string{repository},
-		"branch":     []string{ref},
-		"targetpath": []string{SessionWorkspaceTaskDirectory},
-		"app":        []string{SessionWorkspaceApplication},
-	}
-	return base + "/git-pull?" + query.Encode()
+	return base + "/lab/tree/" + SessionWorkspaceTaskDirectory
 }
 
 func int64Ptr(value int64) *int64 { return &value }
