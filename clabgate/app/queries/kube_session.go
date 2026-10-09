@@ -154,6 +154,7 @@ type CheckerResult struct {
 	CheckID   string
 	Payload   string
 	Logs      string
+	Error     error
 }
 
 func SessionNamespace(sessionID string) string {
@@ -586,18 +587,6 @@ func (k *KubernetesAdminQuery) checkerRun(
 	}
 	run.Status = "failed"
 	for _, pod := range pods.Items {
-		podLogs := ""
-		if rawLogs, logsErr := k.clientset.CoreV1().Pods(namespace).GetLogs(
-			pod.Name,
-			&corev1.PodLogOptions{Container: "checker"},
-		).DoRaw(ctx); logsErr == nil {
-			const maxCheckerLogBytes = 64 * 1024
-			if len(rawLogs) > maxCheckerLogBytes {
-				rawLogs = rawLogs[len(rawLogs)-maxCheckerLogBytes:]
-			}
-			podLogs = string(rawLogs)
-			run.Logs = podLogs
-		}
 		for _, status := range pod.Status.ContainerStatuses {
 			if status.Name != "checker" || status.State.Terminated == nil {
 				continue
@@ -607,12 +596,18 @@ func (k *KubernetesAdminQuery) checkerRun(
 				completedAt := terminated.FinishedAt.Time
 				run.CompletedAt = &completedAt
 			}
-			payload := strings.TrimSpace(terminated.Message)
-			if payload == "" {
-				if terminated.Message != "" {
-					run.Error = terminated.Message
-				} else if terminated.Reason != "" {
+
+			payload, logs, readErr := k.readCheckerPodResult(ctx, namespace, pod.Name)
+			run.Logs = logs
+			if readErr != nil {
+				run.Error = "checker result unavailable: " + readErr.Error()
+				continue
+			}
+			if strings.TrimSpace(payload) == "" {
+				if terminated.Reason != "" {
 					run.Error = terminated.Reason
+				} else {
+					run.Error = "checker did not return a result"
 				}
 				continue
 			}
@@ -620,16 +615,16 @@ func (k *KubernetesAdminQuery) checkerRun(
 				run.Error = "checker returned an invalid result"
 				continue
 			}
-			if podLogs != "" {
-				run.Logs = podLogs
-			}
+			// Only the platform may set these fields. Never trust them from JSON.
 			run.JobName = job.Name
 			run.CheckID = job.Annotations[CheckerIDAnnotation]
+			run.Logs = logs
 			run.StartedAt = timePointer(job.Status.StartTime)
 			if job.Status.CompletionTime != nil {
 				completedAt := job.Status.CompletionTime.Time
 				run.CompletedAt = &completedAt
 			}
+			run.Error = ""
 			run.Status = checkerResultStatus(run, job.Status.Succeeded > 0)
 		}
 	}
@@ -681,7 +676,6 @@ func (k *KubernetesAdminQuery) RunChecker(ctx context.Context, params RunChecker
 	}
 
 	backoffLimit := int32(0)
-	ttlSeconds := int32(86400)
 	checkID := uuid.NewString()
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
@@ -696,9 +690,8 @@ func (k *KubernetesAdminQuery) RunChecker(ctx context.Context, params RunChecker
 			Annotations: map[string]string{CheckerSyncedAnnotation: "false", CheckerIDAnnotation: checkID},
 		},
 		Spec: batchv1.JobSpec{
-			BackoffLimit:            &backoffLimit,
-			TTLSecondsAfterFinished: &ttlSeconds,
-			ActiveDeadlineSeconds:   &params.TimeoutSeconds,
+			BackoffLimit:          &backoffLimit,
+			ActiveDeadlineSeconds: &params.TimeoutSeconds,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
 					SessionManagedByLabel: SessionManagedByValue,
@@ -718,8 +711,6 @@ func (k *KubernetesAdminQuery) RunChecker(ctx context.Context, params RunChecker
 							{Name: "TEST_PATH", Value: params.TestPath},
 							{Name: "SESSION_NAMESPACE", Value: params.Namespace},
 						},
-						TerminationMessagePath:   "/dev/termination-log",
-						TerminationMessagePolicy: corev1.TerminationMessageReadFile,
 						Resources: corev1.ResourceRequirements{
 							Requests: corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("100m"), corev1.ResourceMemory: resource.MustParse("128Mi")},
 							Limits:   corev1.ResourceList{corev1.ResourceCPU: resource.MustParse("1"), corev1.ResourceMemory: resource.MustParse("1Gi")},
@@ -748,29 +739,42 @@ func (k *KubernetesAdminQuery) PendingCheckerResults(ctx context.Context, namesp
 		if job.Status.Succeeded == 0 || job.Annotations[CheckerSyncedAnnotation] == "true" {
 			continue
 		}
+		result := CheckerResult{
+			JobName: job.Name, Namespace: namespace,
+			AttemptID: job.Labels[SessionIDLabel], CheckID: job.Annotations[CheckerIDAnnotation],
+		}
 		pods, podErr := k.clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: labels.Set{"batch.kubernetes.io/job-name": job.Name}.AsSelector().String(),
 		})
 		if podErr != nil {
-			return nil, fmt.Errorf("list checker pods for %s: %w", job.Name, podErr)
+			result.Error = fmt.Errorf("list checker pods: %w", podErr)
+			results = append(results, result)
+			continue
 		}
 		for _, pod := range pods.Items {
-			logs := ""
-			if rawLogs, logsErr := k.clientset.CoreV1().Pods(namespace).GetLogs(pod.Name, &corev1.PodLogOptions{Container: "checker"}).DoRaw(ctx); logsErr == nil {
-				const maxCheckerLogBytes = 64 * 1024
-				if len(rawLogs) > maxCheckerLogBytes {
-					rawLogs = rawLogs[len(rawLogs)-maxCheckerLogBytes:]
-				}
-				logs = string(rawLogs)
-			}
 			for _, status := range pod.Status.ContainerStatuses {
-				if status.Name == "checker" && status.State.Terminated != nil && strings.TrimSpace(status.State.Terminated.Message) != "" {
-					results = append(results, CheckerResult{
-						JobName: job.Name, Namespace: namespace,
-						AttemptID: job.Labels[SessionIDLabel], CheckID: job.Annotations[CheckerIDAnnotation],
-						Payload: status.State.Terminated.Message, Logs: logs,
-					})
+				if status.Name != "checker" || status.State.Terminated == nil {
+					continue
 				}
+				terminated := status.State.Terminated
+				if terminated.ExitCode != 0 {
+					continue
+				}
+				payload, logs, readErr := k.readCheckerPodResult(ctx, namespace, pod.Name)
+				if readErr != nil {
+					result.Error = fmt.Errorf("read checker pod %s result: %w", pod.Name, readErr)
+					result.Logs = logs
+					results = append(results, result)
+					continue
+				}
+				if strings.TrimSpace(payload) == "" {
+					continue
+				}
+				results = append(results, CheckerResult{
+					JobName: job.Name, Namespace: namespace,
+					AttemptID: job.Labels[SessionIDLabel], CheckID: job.Annotations[CheckerIDAnnotation],
+					Payload: payload, Logs: logs,
+				})
 			}
 		}
 	}
@@ -787,6 +791,10 @@ func (k *KubernetesAdminQuery) MarkCheckerResultSynced(ctx context.Context, name
 		copy.Annotations = map[string]string{}
 	}
 	copy.Annotations[CheckerSyncedAnnotation] = "true"
+	// Pod logs are the only transport. Do not allow TTL cleanup until CMS has
+	// acknowledged durable storage of this result.
+	ttlSeconds := int32(86400)
+	copy.Spec.TTLSecondsAfterFinished = &ttlSeconds
 	_, err = k.clientset.BatchV1().Jobs(namespace).Update(ctx, copy, metav1.UpdateOptions{})
 	return err
 }

@@ -61,9 +61,13 @@ func (u *SessionsUC) Reconcile(ctx context.Context) (int, error) {
 		sessionsByAttempt[session.AttemptID] = session
 		results, resultErr := u.KubernetesAdminQuery.PendingCheckerResults(ctx, session.Namespace)
 		if resultErr != nil {
-			return 0, fmt.Errorf("read checker results for %s: %w", session.AttemptID, resultErr)
+			u.Logger.Error().Err(resultErr).Str("attempt_id", session.AttemptID).Msg("read checker results")
 		}
 		for _, result := range results {
+			if result.Error != nil {
+				u.Logger.Error().Err(result.Error).Str("job", result.JobName).Msg("read checker result")
+				continue
+			}
 			grade, decodeErr := decodeCheckerGrade(result.Payload, result.CheckID, result.Logs)
 			if decodeErr != nil {
 				u.Logger.Error().Err(decodeErr).Str("job", result.JobName).Msg("decode checker result")
@@ -75,13 +79,16 @@ func (u *SessionsUC) Reconcile(ctx context.Context) (int, error) {
 				Result:    grade,
 			}})
 			if updateErr != nil {
-				return 0, fmt.Errorf("publish checker result for %s: %w", result.AttemptID, updateErr)
+				u.Logger.Error().Err(updateErr).Str("job", result.JobName).Msg("publish checker result")
+				continue
 			}
 			if count != 1 {
-				return 0, fmt.Errorf("publish checker result for %s: CMS updated %d attempts", result.AttemptID, count)
+				u.Logger.Error().Str("job", result.JobName).Int("updated", count).Msg("CMS did not acknowledge checker result")
+				continue
 			}
 			if markErr := u.KubernetesAdminQuery.MarkCheckerResultSynced(ctx, result.Namespace, result.JobName); markErr != nil {
-				return 0, fmt.Errorf("mark checker result %s synced: %w", result.JobName, markErr)
+				u.Logger.Error().Err(markErr).Str("job", result.JobName).Msg("mark checker result synced")
+				continue
 			}
 			changes++
 		}

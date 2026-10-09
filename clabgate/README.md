@@ -38,7 +38,7 @@ flowchart LR
     K8s --> Jupyter[JupyterLab pod пользователя]
     Front -->|short grant + HttpOnly cookie| Gate
     Front -->|authorized /clabgate/workspace/attempt-uuid| Jupyter
-    Checker[Checker Job] -->|termination JSON| Gate
+    Checker[Checker Job] -->|framed JSON in Pod stdout logs| Gate
     Gate -->|result + lifecycle| CMS
     CMS -->|LTI AGS grade| Moodle
 ```
@@ -888,3 +888,25 @@ plane не хранит широкие kubeconfig worker clusters.
   `../nextui-dashboard/nginx/templates/default.conf.template`](../nextui-dashboard/nginx/templates/default.conf.template)
 - task catalog: `cms_task_collection/README.md`
 - CMS Labs Clabernetes fork: `cms-labs-clabernetes`
+
+## Checker result transport (Pod logs, v1)
+
+Checker emits its JSON result exclusively in stdout Pod logs. Each line
+has **one** `CMS_LABS_CHECKER_RESULT_V1` prefix, followed by the complete
+JSON payload's SHA-256 digest and one base64 chunk (at most 2048 characters).
+Clabgate concatenates the chunks, verifies their digest and parses JSON.
+There are **no BEGIN/END markers**, termination messages or legacy fallback.
+
+This reader is used for both `session.get` CHECK status and CMS grade sync.
+The bound is **1 MiB JSON**, fetched from up to **2 MiB of Pod logs /
+last 2048 lines**. The last **64 KiB** of ordinary logs is kept separately.
+Incomplete, damaged, duplicated or inconsistent chunks cannot publish a grade.
+
+Transport errors are isolated per Job; they do not stop the session lifecycle or
+other grade deliveries. Ordinary diagnostic logs remain visible even when the
+checker crashes before producing a result. Unsynchronized Jobs have no TTL;
+cleanup is enabled only after CMS acknowledges storage (24 hours after Job
+completion). Namespace removal still deletes its Jobs and logs.
+
+This is a **breaking change**: checker and Clabgate releases must be
+deployed together. Old checker images are deliberately unsupported.
