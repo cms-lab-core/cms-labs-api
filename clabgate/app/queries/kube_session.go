@@ -510,14 +510,14 @@ func (k *KubernetesAdminQuery) sessionFromNamespace(
 		}
 	}
 
-	jobs, err := k.clientset.BatchV1().Jobs(namespace.Name).List(ctx, metav1.ListOptions{LabelSelector: labels.Set{SessionComponentLabel: SessionComponentChecker}.AsSelector().String()})
+	jobs, err := k.checkerJobsForLab(ctx, namespace.Name)
 	if err == nil && len(jobs.Items) > 0 {
 		sort.Slice(jobs.Items, func(i, j int) bool {
 			return jobs.Items[i].CreationTimestamp.Before(&jobs.Items[j].CreationTimestamp)
 		})
 		job := jobs.Items[len(jobs.Items)-1]
 		record.CheckerRunning = job.Status.Succeeded == 0 && job.Status.Failed == 0
-		checker, checkerErr := k.checkerRun(ctx, namespace.Name, &job)
+		checker, checkerErr := k.checkerRun(ctx, job.Namespace, &job)
 		if checkerErr != nil {
 			return SessionRecord{}, fmt.Errorf("read latest checker run: %w", checkerErr)
 		}
@@ -661,9 +661,7 @@ func (k *KubernetesAdminQuery) RunChecker(ctx context.Context, params RunChecker
 	if params.Image == "" {
 		return "", errors.New("CHECKER_IMAGE is not configured")
 	}
-	activeJobs, err := k.clientset.BatchV1().Jobs(params.Namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: labels.Set{SessionComponentLabel: SessionComponentChecker}.AsSelector().String(),
-	})
+	activeJobs, err := k.checkerJobsForLab(ctx, params.Namespace)
 	if err != nil {
 		return "", fmt.Errorf("list checker jobs: %w", err)
 	}
@@ -680,12 +678,13 @@ func (k *KubernetesAdminQuery) RunChecker(ctx context.Context, params RunChecker
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: "checker-",
-			Namespace:    params.Namespace,
+			Namespace:    k.checkerJobNamespace(params.Namespace),
 			Labels: map[string]string{
-				SessionManagedByLabel: SessionManagedByValue,
-				SessionIDLabel:        params.SessionID,
-				SessionOwnerLabel:     params.OwnerID,
-				SessionComponentLabel: SessionComponentChecker,
+				SessionManagedByLabel:       SessionManagedByValue,
+				SessionIDLabel:              params.SessionID,
+				SessionOwnerLabel:           params.OwnerID,
+				SessionComponentLabel:       SessionComponentChecker,
+				CheckerTargetNamespaceLabel: params.Namespace,
 			},
 			Annotations: map[string]string{CheckerSyncedAnnotation: "false", CheckerIDAnnotation: checkID},
 		},
@@ -694,13 +693,15 @@ func (k *KubernetesAdminQuery) RunChecker(ctx context.Context, params RunChecker
 			ActiveDeadlineSeconds: &params.TimeoutSeconds,
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{Labels: map[string]string{
-					SessionManagedByLabel: SessionManagedByValue,
-					SessionIDLabel:        params.SessionID,
-					SessionOwnerLabel:     params.OwnerID,
-					SessionComponentLabel: SessionComponentChecker,
+					SessionManagedByLabel:       SessionManagedByValue,
+					SessionIDLabel:              params.SessionID,
+					SessionOwnerLabel:           params.OwnerID,
+					SessionComponentLabel:       SessionComponentChecker,
+					CheckerTargetNamespaceLabel: params.Namespace,
 				}},
 				Spec: corev1.PodSpec{
-					AutomountServiceAccountToken: boolPtr(false),
+					AutomountServiceAccountToken: boolPtr(true),
+					ServiceAccountName:           k.checkerAccountName(),
 					RestartPolicy:                corev1.RestartPolicyNever,
 					Containers: []corev1.Container{{
 						Name:  "checker",
@@ -720,7 +721,7 @@ func (k *KubernetesAdminQuery) RunChecker(ctx context.Context, params RunChecker
 			},
 		},
 	}
-	created, err := k.clientset.BatchV1().Jobs(params.Namespace).Create(ctx, job, metav1.CreateOptions{})
+	created, err := k.clientset.BatchV1().Jobs(k.checkerJobNamespace(params.Namespace)).Create(ctx, job, metav1.CreateOptions{})
 	if err != nil {
 		return "", fmt.Errorf("create checker job: %w", err)
 	}
@@ -728,9 +729,7 @@ func (k *KubernetesAdminQuery) RunChecker(ctx context.Context, params RunChecker
 }
 
 func (k *KubernetesAdminQuery) PendingCheckerResults(ctx context.Context, namespace string) ([]CheckerResult, error) {
-	jobs, err := k.clientset.BatchV1().Jobs(namespace).List(ctx, metav1.ListOptions{
-		LabelSelector: labels.Set{SessionComponentLabel: SessionComponentChecker}.AsSelector().String(),
-	})
+	jobs, err := k.checkerJobsForLab(ctx, namespace)
 	if err != nil {
 		return nil, fmt.Errorf("list checker jobs: %w", err)
 	}
@@ -740,10 +739,10 @@ func (k *KubernetesAdminQuery) PendingCheckerResults(ctx context.Context, namesp
 			continue
 		}
 		result := CheckerResult{
-			JobName: job.Name, Namespace: namespace,
+			JobName: job.Name, Namespace: job.Namespace,
 			AttemptID: job.Labels[SessionIDLabel], CheckID: job.Annotations[CheckerIDAnnotation],
 		}
-		pods, podErr := k.clientset.CoreV1().Pods(namespace).List(ctx, metav1.ListOptions{
+		pods, podErr := k.clientset.CoreV1().Pods(job.Namespace).List(ctx, metav1.ListOptions{
 			LabelSelector: labels.Set{"batch.kubernetes.io/job-name": job.Name}.AsSelector().String(),
 		})
 		if podErr != nil {
@@ -760,7 +759,7 @@ func (k *KubernetesAdminQuery) PendingCheckerResults(ctx context.Context, namesp
 				if terminated.ExitCode != 0 {
 					continue
 				}
-				payload, logs, readErr := k.readCheckerPodResult(ctx, namespace, pod.Name)
+				payload, logs, readErr := k.readCheckerPodResult(ctx, job.Namespace, pod.Name)
 				if readErr != nil {
 					result.Error = fmt.Errorf("read checker pod %s result: %w", pod.Name, readErr)
 					result.Logs = logs
@@ -771,7 +770,7 @@ func (k *KubernetesAdminQuery) PendingCheckerResults(ctx context.Context, namesp
 					continue
 				}
 				results = append(results, CheckerResult{
-					JobName: job.Name, Namespace: namespace,
+					JobName: job.Name, Namespace: job.Namespace,
 					AttemptID: job.Labels[SessionIDLabel], CheckID: job.Annotations[CheckerIDAnnotation],
 					Payload: payload, Logs: logs,
 				})
@@ -806,6 +805,19 @@ func (k *KubernetesAdminQuery) DeleteSession(ctx context.Context, sessionID, own
 	}
 	if !allowAnyOwner && record.OwnerID != ownerID {
 		return errors.New("session belongs to another user")
+	}
+	if jobNamespace := k.checkerJobNamespace(record.Namespace); jobNamespace != record.Namespace {
+		client := k.clientset.BatchV1().Jobs(jobNamespace)
+		jobs, err := client.List(ctx, metav1.ListOptions{LabelSelector: labels.Set{SessionComponentLabel: SessionComponentChecker, CheckerTargetNamespaceLabel: record.Namespace, SessionIDLabel: record.ID, SessionOwnerLabel: record.OwnerID}.AsSelector().String()})
+		if err != nil {
+			return fmt.Errorf("list session checker jobs for cleanup: %w", err)
+		}
+		policy := metav1.DeletePropagationBackground
+		for _, job := range jobs.Items {
+			if err := client.Delete(ctx, job.Name, metav1.DeleteOptions{PropagationPolicy: &policy}); err != nil && !apierrors.IsNotFound(err) {
+				return fmt.Errorf("delete session checker job: %w", err)
+			}
+		}
 	}
 	return k.clientset.CoreV1().Namespaces().Delete(ctx, record.Namespace, metav1.DeleteOptions{})
 }

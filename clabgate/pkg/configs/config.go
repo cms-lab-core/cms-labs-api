@@ -36,6 +36,8 @@ type SessionConfig struct {
 	ReconcileMaxSeconds     int64
 	CheckerImage            string
 	CheckerTimeout          int64
+	CheckerNamespace        string
+	CheckerServiceAccount   string
 	WorkspaceProxyNamespace string
 }
 
@@ -67,6 +69,8 @@ func (c *AppConfigModel) Reload() {
 		ReconcileSeconds:        getEnvInt64Default("SESSION_RECONCILE_INTERVAL_SECONDS", 30),
 		ReconcileMaxSeconds:     getEnvInt64Default("SESSION_RECONCILE_MAX_INTERVAL_SECONDS", 120),
 		CheckerImage:            os.Getenv("CHECKER_IMAGE"),
+		CheckerNamespace:        getEnvDefault("CHECKER_NAMESPACE", getEnvDefault("POD_NAMESPACE", "cms-labs")),
+		CheckerServiceAccount:   getEnvDefault("CHECKER_SERVICE_ACCOUNT", "cms-labs-checker"),
 		CheckerTimeout:          getEnvInt64Default("CHECKER_TIMEOUT_SECONDS", 600),
 		WorkspaceProxyNamespace: getEnvDefault("WORKSPACE_PROXY_NAMESPACE", os.Getenv("POD_NAMESPACE")),
 	}

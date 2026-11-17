@@ -8,6 +8,8 @@
     "start": "vite start",
     "lint": "eslint app components helpers --report-unused-disable-directives --max-warnings 0",
     "types": "tsc --noEmit",
+    "test:topology-polling": "node --experimental-strip-types --test tests/topology-polling.test.mjs",
+    "test:topology-terminal": "node --experimental-strip-types --test tests/topology-terminal.test.mjs",
     "format": "prettier --write \"app/**/*.{ts,tsx,js,jsx,json,css}\" \"components/**/*.{ts,tsx,js,jsx,json,css}\" \"helpers/**/*.{ts,tsx,js,jsx,json,css}\"",
     "format:check": "prettier --check \"app/**/*.{ts,tsx,js,jsx,json,css}\" \"components/**/*.{ts,tsx,js,jsx,json,css}\" \"helpers/**/*.{ts,tsx,js,jsx,json,css}\"",
     "serve": "serve dist",

@@ -96,15 +96,18 @@ source revision, session phase и ready-at) хранится в annotations. П�
 - разрешённые namespaced-ресурсы и один `Topology` из лабораторных `*.template.yaml`;
 - `PersistentVolumeClaim/jupyter`;
 - `Deployment/jupyter` и `Service/jupyter:8888`;
-- `Job/checker-*` только после явного `session.check`.
+- `Job/checker-*` только после явного `session.check`, в служебном namespace `CHECKER_NAMESPACE`.
 
 `session.ensure` заканчивается после принятия desired resources API-сервером, а не ждёт запуска образов. Состояния
 `pending`, `provisioning`, `ready`, `degraded`, `failed`, `stopping` вычисляются из фактических объектов Kubernetes.
 
 ### Контракт checker image
 
-Образ из `CHECKER_IMAGE` запускается без Kubernetes credentials и без монтирования RWO Jupyter PVC, в namespace
-лаборатории, с переменными:
+Образ из `CHECKER_IMAGE` запускается в служебном namespace `CHECKER_NAMESPACE` с
+ServiceAccount `CHECKER_SERVICE_ACCOUNT` и Kubernetes API token, без монтирования
+RWO Jupyter PVC. Общие ServiceAccount и RBAC создаются при деплое платформы,
+а не при запуске Job. По умолчанию аккаунт — `cms-labs-checker`, namespace —
+`POD_NAMESPACE` или `cms-labs`. В Job передаются переменные:
 
 ```text
 SESSION_ID
@@ -176,6 +179,8 @@ Reconciler валидирует диапазон оценки, добавляе�
 | `SESSION_RECONCILE_MAX_INTERVAL_SECONDS` | максимальный idle/error backoff, `120`; при изменениях интервал сбрасывается к начальному                            |
 | `CHECKER_IMAGE`                          | образ checker; без него `session.check` явно вернёт ошибку                                                           |
 | `CHECKER_TIMEOUT_SECONDS`                | active deadline checker Job, `600`                                                                                   |
+| `CHECKER_NAMESPACE`                      | namespace checker Job; `POD_NAMESPACE`, иначе `cms-labs` |
+| `CHECKER_SERVICE_ACCOUNT`                | заранее созданный аккаунт Job, `cms-labs-checker`; права определяются RBAC деплоя |
 
 ServiceAccount/RBAC в `k8s/values/_common/clabgate-values.yaml` расширен ровно на создаваемые namespaced ресурсы и
 Namespace. Для Topology namespace включён Pod Security `privileged`, поскольку сетевые node workloads Clabernetes

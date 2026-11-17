@@ -134,6 +134,8 @@ jobs:
       - run: yarn install --frozen-lockfile
       - run: yarn lint
       - run: yarn types
+      - run: yarn test:topology-polling
+      - run: yarn test:topology-terminal
       - run: yarn format:check
       - run: yarn build
 

@@ -19,12 +19,14 @@ interface TopologyFlowVisualizationProps {
   dispatch?: TerminalActionFunc;
   highlightedNodeId?: string;
   active?: boolean;
+  viewportSize?: { width: number; height: number };
 }
 
 export const TopologyFlowVisualization = ({
   dispatch,
   highlightedNodeId,
-  active = true
+  active = true,
+  viewportSize
 }: TopologyFlowVisualizationProps) => {
   const { theme } = useThemeBrowser();
   const [menu, setMenu] = useState<RFContextMenuProps>({});
@@ -61,11 +63,12 @@ export const TopologyFlowVisualization = ({
   const { fitView } = useReactFlow();
   useEffect(() => {
     if (!active || !queryTopology.data) return;
-    const frame = window.requestAnimationFrame(() => {
+    // Wait until sidebar dragging stops and React Flow measures its new size.
+    const timer = window.setTimeout(() => {
       fitView({ padding: 0.16, duration: 250 });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [active, fitView, queryTopology.data]);
+    }, 120);
+    return () => window.clearTimeout(timer);
+  }, [active, fitView, queryTopology.data, viewportSize?.width, viewportSize?.height]);
   useEffect(() => {
     // @ts-ignore
     window.document.title = `Lab ${sessionId}`;

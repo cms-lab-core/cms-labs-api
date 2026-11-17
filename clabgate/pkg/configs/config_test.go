@@ -2,6 +2,26 @@ package configs
 
 import "testing"
 
+func TestCheckerPlacementConfiguration(t *testing.T) {
+	t.Setenv("CHECKER_NAMESPACE", "")
+	t.Setenv("CHECKER_SERVICE_ACCOUNT", "")
+	t.Setenv("POD_NAMESPACE", "")
+	config := NewAppConfigModel().Session
+	if config.CheckerNamespace != "cms-labs" || config.CheckerServiceAccount != "cms-labs-checker" {
+		t.Fatalf("unexpected checker defaults: %+v", config)
+	}
+	t.Setenv("POD_NAMESPACE", "cms-pre")
+	if NewAppConfigModel().Session.CheckerNamespace != "cms-pre" {
+		t.Fatal("checker must follow the platform namespace")
+	}
+	t.Setenv("CHECKER_NAMESPACE", "checks")
+	t.Setenv("CHECKER_SERVICE_ACCOUNT", "my-checker")
+	config = NewAppConfigModel().Session
+	if config.CheckerNamespace != "checks" || config.CheckerServiceAccount != "my-checker" {
+		t.Fatal("checker placement overrides ignored")
+	}
+}
+
 func TestWorkspaceGrantTTLConfiguration(t *testing.T) {
 	t.Setenv("WORKSPACE_GRANT_TTL_SECONDS", "")
 	if got := NewAppConfigModel().Session.WorkspaceGrantTTL; got != 300 {

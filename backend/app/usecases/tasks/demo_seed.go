@@ -19,8 +19,6 @@ type DemoSeedUC struct {
 	Logger *zerolog.Logger
 }
 
-const DemoAttemptID = "00000000-0000-0000-0000-000000000000"
-
 // DemoDefaultRoutingID is the routing id of the built-in catalog entry, so a
 // demo run without a catalog file never collides with imported laboratories.
 const DemoDefaultRoutingID = 10000
@@ -57,13 +55,13 @@ func DefaultDemoCatalog() DemoCatalog {
 }
 
 func (u *DemoSeedUC) Execute(catalogPath string) error {
-	catalog, builtin := DefaultDemoCatalog(), true
+	catalog := DefaultDemoCatalog()
 	if strings.TrimSpace(catalogPath) != "" {
 		loaded, err := loadDemoCatalog(catalogPath)
 		if err != nil {
 			return err
 		}
-		catalog, builtin = loaded, false
+		catalog = loaded
 	}
 	if err := validateDemoCatalog(&catalog); err != nil {
 		return err
@@ -71,38 +69,6 @@ func (u *DemoSeedUC) Execute(catalogPath string) error {
 	if err := u.seedCatalog(catalog); err != nil {
 		return err
 	}
-	if !builtin {
-		return nil
-	}
-	return u.seedDemoAttempt()
-}
-
-// seedDemoAttempt attaches the stable demo attempt to the built-in routing.
-func (u *DemoSeedUC) seedDemoAttempt() error {
-	var user models.User
-	if err := u.DB.Where("email = ?", "admin@admin.com").First(&user).Error; err != nil {
-		return err
-	}
-	var server models.Server
-	if err := u.DB.Where("client_id = ?", "demo-kubernetes").First(&server).Error; err != nil {
-		return err
-	}
-	var route models.LTIRouting
-	if err := u.DB.First(&route, DemoDefaultRoutingID).Error; err != nil {
-		return err
-	}
-	var attempt models.LTIAttempt
-	err := u.DB.Where("attempt_id = ?", DemoAttemptID).First(&attempt).Error
-	if err == gorm.ErrRecordNotFound {
-		attempt = models.LTIAttempt{LTIAttemptBase: models.LTIAttemptBase{AttemptID: DemoAttemptID, Status: models.AttemptStatusPending, UserID: user.ID, LTIRoutingID: route.ID}, LTIAttemptSecret: models.LTIAttemptSecret{}}
-		attempt.ServerID = &server.ID
-		if err := u.DB.Create(&attempt).Error; err != nil {
-			return err
-		}
-	} else if err != nil {
-		return err
-	}
-	u.Logger.Info().Str("attempt_id", DemoAttemptID).Msg("demo records ready")
 	return nil
 }
 
@@ -207,7 +173,7 @@ func (u *DemoSeedUC) seedCatalog(catalog DemoCatalog) error {
 			route.Collaboration = 1
 			route.LabsType = "default"
 			route.ServerID = server.ID
-			route.IsDefault = lab.ID == DemoDefaultRoutingID
+			route.IsDefault = false
 			if result.Error == gorm.ErrRecordNotFound {
 				if err := tx.Create(&route).Error; err != nil {
 					return err

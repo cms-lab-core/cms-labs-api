@@ -157,6 +157,28 @@ deployments: {}
 statefulSetsGeneral: {}
 statefulSets: {}
 
+# For CMS checker deployments, provision a shared identity in the release namespace:
+# serviceAccount:
+#   cms-labs-checker:
+#     clusterRole:
+#       name: cms-labs-checker
+#       rules:
+#         - apiGroups: ["apps"]
+#           resources: ["deployments"]
+#           verbs: ["get"]
+#         - apiGroups: [""]
+#           resources: ["pods"]
+#           verbs: ["get", "list"]
+#         - apiGroups: [""]
+#           resources: ["pods/exec", "pods/attach"]
+#           verbs: ["get", "create"]
+# Configure the clabgate container's env:
+#   - name: CHECKER_NAMESPACE
+#     valueFrom:
+#       fieldRef:
+#         fieldPath: metadata.namespace
+#   - name: CHECKER_SERVICE_ACCOUNT
+#     value: cms-labs-checker
 serviceAccount: {}
 #  firstaccount:
 #    role:

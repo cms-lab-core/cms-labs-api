@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/cms-lab-core/cms-labs-api/clabgate/pkg/configs"
 	"github.com/cms-lab-core/cms-labs-api/clabgate/pkg/kubeconfig"
 	"github.com/cms-lab-core/cms-labs-api/shared/logs"
 	"github.com/rs/zerolog"
@@ -41,9 +42,11 @@ type TTYDInfo struct {
 }
 
 type KubernetesAdminQuery struct {
-	clientset     kubernetes.Interface
-	dynamicClient dynamic.Interface
-	config        *rest.Config
+	clientset             kubernetes.Interface
+	dynamicClient         dynamic.Interface
+	config                *rest.Config
+	checkerNamespace      string
+	checkerServiceAccount string
 	*zerolog.Logger
 }
 
@@ -78,10 +81,12 @@ func NewKubernetesAdmin(zeroLogConf *logs.ZeroLoggerConf) (*KubernetesAdminQuery
 	}
 
 	return &KubernetesAdminQuery{
-		clientset:     clientset,
-		dynamicClient: dynamicClient,
-		config:        config,
-		Logger:        logs.NewZeroLogger(zeroLogConf),
+		clientset:             clientset,
+		dynamicClient:         dynamicClient,
+		config:                config,
+		Logger:                logs.NewZeroLogger(zeroLogConf),
+		checkerNamespace:      configs.AppConfig.Session.CheckerNamespace,
+		checkerServiceAccount: configs.AppConfig.Session.CheckerServiceAccount,
 	}, nil
 }
 
