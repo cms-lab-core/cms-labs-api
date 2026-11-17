@@ -92,7 +92,7 @@ check_response=$(curl --noproxy '*' --fail-with-body --silent --show-error \
   --data "{\"jsonrpc\":\"2.0\",\"id\":\"smoke-check\",\"method\":\"session.check\",\"params\":{\"session_id\":\"$session_id\"}}" \
   "$rpc_url")
 job_name=$(printf '%s' "$check_response" | jq -er '.result.job_name')
-kubectl wait --for=condition=complete "job/$job_name" -n "$namespace" \
+kubectl wait --for=condition=complete "job/$job_name" -n cms-labs-system \
   --context "$context" --timeout=90s >/dev/null
 
 attempt=0

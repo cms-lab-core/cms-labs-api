@@ -7,6 +7,19 @@ services:
         targetPort: http
 
 serviceAccount:
+  cms-labs-checker:
+    clusterRole:
+      name: cms-labs-checker
+      rules:
+        - apiGroups: ["apps"]
+          resources: ["deployments"]
+          verbs: ["get"]
+        - apiGroups: [""]
+          resources: ["pods"]
+          verbs: ["get", "list"]
+        - apiGroups: [""]
+          resources: ["pods/exec", "pods/attach"]
+          verbs: ["get", "create"]
   clabgate:
     clusterRole:
       name: clabgate
@@ -59,6 +72,12 @@ deployments:
             valueFrom:
               fieldRef:
                 fieldPath: metadata.namespace
+          - name: CHECKER_NAMESPACE
+            valueFrom:
+              fieldRef:
+                fieldPath: metadata.namespace
+          - name: CHECKER_SERVICE_ACCOUNT
+            value: cms-labs-checker
           - name: CHECKER_IMAGE
             value: ghcr.io/cms-lab-core/cms-labs-checker:latest
           - name: JUPYTER_IMAGE
