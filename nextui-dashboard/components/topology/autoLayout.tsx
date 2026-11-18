@@ -36,7 +36,7 @@ export const getLayoutElements = (nodes: RFNodeTopology[], edges: RFEdgeTopology
       const { x, y } = dagreGraph.node(node.id);
       return {
         ...node,
-        position: { x, y },
+        position: node.data.layoutPosition ?? { x, y },
         data: { ...node.data, isLayouted: true },
         style: defaultStyleNodes
       };

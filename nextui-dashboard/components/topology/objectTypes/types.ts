@@ -22,6 +22,8 @@ export interface EdgeDataItem {
 }
 
 export interface Node {
+  /** Explicit canvas coordinates from labels.flow_x / labels.flow_y. */
+  layoutPosition?: { x: number; y: number };
   data?: NodeDataItem;
   /** Icon enum:cloud,router,server,switch,desktop */
   icon?: string; // .labels.flow_icon или kind

@@ -1,6 +1,6 @@
 import * as yaml from 'js-yaml';
 import type { Edge, EdgeData, Node, NodeDataItem, RFEdgeTopology, RFNodeTopology } from './types';
-import { CamelCasedPropertiesDeep } from 'type-fest';
+import type { CamelCasedPropertiesDeep } from 'type-fest';
 import type {
   QueriesDeploymentInfo,
   QueriesServiceInfo,
@@ -46,6 +46,20 @@ export interface ParsedTopology {
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
+// Labels are strings in containerlab; tolerate unquoted YAML numbers as well.
+function parseLayoutPosition(labels?: Record<string, string>): { x: number; y: number } | undefined {
+  const coordinate = (value: unknown): number | undefined => {
+    if (typeof value !== 'string' && typeof value !== 'number') return undefined;
+    const text = String(value).trim();
+    if (!/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)$/.test(text)) return undefined;
+    const number = Number(text);
+    return Number.isFinite(number) ? number : undefined;
+  };
+  const x = coordinate(labels?.flow_x);
+  const y = coordinate(labels?.flow_y);
+  return x === undefined || y === undefined ? undefined : { x, y };
+}
+
 function parseEndpoint(ep: string): Endpoint {
   const [node, iface = ''] = ep.split(':');
   return { node, iface };
@@ -84,6 +98,7 @@ export function parseTopology(response: Response): ParsedTopology {
   for (const [nodeName, nodeData] of Object.entries(topology?.topology?.nodes ?? {})) {
     const label = nodeName || nodeData.kind || '';
     const icon = nodeData.labels?.['flow_icon'] || nodeData.kind || '';
+    const layoutPosition = parseLayoutPosition(nodeData.labels);
 
     const deployment = findDeployment(response.deployments || [], nodeName);
     const service = findService(response.services || [], nodeName);
@@ -106,13 +121,14 @@ export function parseTopology(response: Response): ParsedTopology {
       label,
       type: 'default',
       icon,
+      layoutPosition,
       data: dataItem
     };
 
     nodes.push({
       id: nodeName,
       type: 'default',
-      position: { x: 0, y: 0 }, // React Flow требует position
+      position: layoutPosition ?? { x: 0, y: 0 },
       data: nodePayload
     });
   }
