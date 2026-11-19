@@ -434,6 +434,7 @@ export interface QueriesLTIAttemptSearchParams {
   limit?: number;
   offset?: number;
   server_client_ids?: string[];
+  server_ids?: number[];
   statuses?: string[];
   user_ids?: number[];
 }

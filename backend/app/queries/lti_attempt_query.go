@@ -24,6 +24,7 @@ type LTIAttemptSearchParams struct {
 	UserIds         []uint   `json:"user_ids"`
 	Statuses        []string `json:"statuses"`
 	ServerClientIds []string `json:"server_client_ids"`
+	ServerIds       []uint   `json:"server_ids"`
 	Limit           int      `json:"limit"`
 	Offset          int      `json:"offset"`
 }
@@ -180,6 +181,9 @@ func (q *LTIAttemptQueries) listFilter(search *LTIAttemptSearchParams, tx *gorm.
 	}
 	if len(search.AttemptIds) > 0 {
 		tx = tx.Where("lti_attempts.attempt_id IN (?)", search.AttemptIds)
+	}
+	if len(search.ServerIds) > 0 {
+		tx = tx.Where("lti_attempts.server_id IN (?)", search.ServerIds)
 	}
 	if len(search.ServerClientIds) > 0 {
 		tx = tx.Where("servers.client_id IN (?)", search.ServerClientIds)

@@ -59,19 +59,18 @@ func (q *ServiceCardQueries) List(
 	search string,
 	limit int,
 	offset int,
+	onlyActive ...bool,
 ) ([]models.ServiceCardListItem, int64, error) {
 	var entities []models.ServiceCardListItem
-	result := q.listFilter(
-		search,
-		q.DB.Limit(MaxLimitCount).Offset(0),
-	).Find(&entities)
-	count := result.RowsAffected
-	q.Logger.Debug().Msg(fmt.Sprintf("ServiceCardQueries list: count %+v", count))
-	result = q.listFilter(
-		search,
-		q.DB.Limit(limit).Offset(offset),
-	).Find(&entities)
-	q.Logger.Debug().Msg(fmt.Sprintf("ServiceCardQueries list: entities %+v", entities))
+	query := q.listFilter(search, q.DB)
+	if len(onlyActive) > 0 && onlyActive[0] {
+		query = query.Where("is_active = ?", true)
+	}
+	var count int64
+	if err := query.Session(&gorm.Session{}).Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	result := query.Limit(limit).Offset(offset).Find(&entities)
 	return entities, count, result.Error
 }
 

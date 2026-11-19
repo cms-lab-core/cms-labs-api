@@ -37,6 +37,7 @@ func V1RpcRoute(a *fiber.App) {
 	rpc.Method("role.delete", controllers.RoleDelete)
 	rpc.Method("service_card.upsert", controllers.ServiceCardUpsert)
 	rpc.Method("service_card.list", controllers.ServiceCardList)
+	rpc.Method("service_card.available", controllers.ServiceCardAvailable)
 	rpc.Method("service_card.delete", controllers.ServiceCardDelete)
 	rpc.Method("service_card.get", controllers.ServiceCardGet)
 	rpc.Method("sso.authorize", controllers.SSOAuthorizePost)

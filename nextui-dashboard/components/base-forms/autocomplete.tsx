@@ -24,7 +24,7 @@ export const AutoCompleteFull = (props: AutoCompleteFullProps) => {
       variant={props.variant}
       className={props.className}
       items={items}
-      selectedKey={props.value}
+      selectedKey={props.value ? String(props.value) : null}
       label={props.label}
       labelPlacement='inside'
       description={props.description}
@@ -33,10 +33,10 @@ export const AutoCompleteFull = (props: AutoCompleteFullProps) => {
       onSelectionChange={(key) => {
         const event = {
           target: {
-            value: key
+            value: key === null ? '' : String(key)
           }
         } as ChangeEvent<HTMLInputElement>;
-        key && props.onChange?.(event);
+        props.onChange?.(event);
       }}
       isLoading={responseSearch?.isLoading}
       aria-label={props.label?.toString()}

@@ -1,5 +1,5 @@
 import { addToast, Button, Select, SelectItem } from '@heroui/react';
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { BookPlus, House, Trash2 } from 'lucide-react';
 import { RoutesLocation } from '@/components/routes';
 import useLanguageBrowser from '@/helpers/locale';
@@ -18,6 +18,7 @@ import { useMutationLtiAttemptUpdate } from '@/helpers/queries/lti_attempt/use-m
 interface QueryParams {
   statuses: string[];
   userId?: string;
+  serverId?: string;
   serverClientId?: string;
 }
 
@@ -25,7 +26,12 @@ function getQueryParams(searchParams: URLSearchParams): QueryParams {
   return {
     statuses: searchParams.getAll('statuses'),
     userId: searchParams.get('userId') || undefined,
-    serverClientId: searchParams.get('serverClientId') || undefined
+    serverId:
+      searchParams.get('serverId') ||
+      (/^\d+$/.test(searchParams.get('serverClientId') || '') ? searchParams.get('serverClientId')! : undefined),
+    serverClientId: /^\d+$/.test(searchParams.get('serverClientId') || '')
+      ? undefined
+      : searchParams.get('serverClientId') || undefined
   };
 }
 
@@ -44,6 +50,7 @@ export const LTIAttemptsListPage = () => {
     return {
       statuses: params.statuses || [],
       userId: params.userId || '',
+      serverId: params.serverId || '',
       serverClientId: params.serverClientId || ''
     };
   }, [searchParams]);
@@ -53,11 +60,17 @@ export const LTIAttemptsListPage = () => {
 
   const selectedStatuses = queryParams.statuses;
   const selectedUserId = queryParams.userId;
+  const selectedServerId = queryParams.serverId;
   const selectedServerClientId = queryParams.serverClientId;
+  useEffect(
+    () => setSelectedAttempts(new Set()),
+    [selectedServerId, selectedServerClientId, selectedUserId, selectedStatuses]
+  );
 
   const updateParam = (key: string, value: string | string[]) => {
     const newParams = new URLSearchParams(searchParams.toString());
     newParams.delete(key);
+    if (key === 'serverId') newParams.delete('serverClientId');
     if (Array.isArray(value)) {
       value.forEach((v) => newParams.append(key, v));
     } else if (value) {
@@ -80,6 +93,7 @@ export const LTIAttemptsListPage = () => {
     limit: 100,
     statuses: selectedStatuses,
     userIds: selectedUserId ? [Number(selectedUserId)] : [],
+    serverIds: selectedServerId ? [Number(selectedServerId)] : [],
     serverClientIds: selectedServerClientId ? [selectedServerClientId] : []
   });
 
@@ -182,8 +196,8 @@ export const LTIAttemptsListPage = () => {
             <AutoCompleteFull
               label={LTIAttemptsTable.FilterServer || 'Server'}
               placeholder={LTIAttemptsTable.FilterServer || 'Select server'}
-              value={selectedServerClientId}
-              onChange={(e) => updateParam('serverClientId', e.target.value)}
+              value={selectedServerId}
+              onChange={(e) => updateParam('serverId', e.target.value)}
               fetchData={useQueryServerAutoComplete}
               className='w-64'
             />

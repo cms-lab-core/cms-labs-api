@@ -1,15 +1,17 @@
 import { nanoid } from 'nanoid';
 import { objectToCamel, objectToSnake } from 'ts-case-convert';
 import axios, { AxiosError, type AxiosRequestConfig, type AxiosResponse } from 'axios';
-import { AuthDataGet, AuthDataUpdate, AuthOptionsSetup, RpcParams } from './types';
+import type { AuthDataGet, AuthDataUpdate, AuthOptionsSetup, RpcParams } from './types';
 
 function onceTime(func: () => Promise<void>) {
   let promise: Promise<void> | null = null;
 
   return async (): Promise<void> => {
-    if (!promise) promise = func();
+    if (!promise)
+      promise = func().finally(() => {
+        promise = null;
+      });
     await promise;
-    promise = null;
   };
 }
 
@@ -63,7 +65,7 @@ export class RpcTransport {
     );
     this.transport.interceptors.response.use(
       (response: AxiosResponse) => {
-        if (response?.request?.method === 'POST' && response.data.error) throw response;
+        if (response.data?.error) throw response.data.error;
         return response;
       },
       (error: AxiosError) => {
@@ -72,7 +74,7 @@ export class RpcTransport {
           // @ts-ignore
           throw error.response?.data?.error;
         }
-        return error;
+        return Promise.reject(error);
       }
     );
   }

@@ -75,6 +75,30 @@ func ServiceCardList(c *jsonrpc.Ctx) (interface{}, error) {
 	return output, err
 }
 
+func ServiceCardAvailable(c *jsonrpc.Ctx) (interface{}, error) {
+	if _, err := auth.ExtractTokenMetadata(
+		c,
+		[]string{},
+	); err != nil {
+		return nil, err
+	}
+	diLoggerConf := logs.NewZeroLoggerConf(c)
+	dto := usecases.ServiceCardListInputDTO{}
+	err := jsonrpc.ValidatorBase(c, &dto)
+	if err != nil {
+		return nil, err
+	}
+	container, err := di.NewDIContainer(diLoggerConf)
+	if err != nil {
+		return nil, err
+	}
+	defer container.Close()
+	dto.OnlyActive = true
+	uc := container.ServiceCardListUC()
+	output, err := uc.Execute(dto)
+	return output, err
+}
+
 // ServiceCardDelete func for delete ServiceCard.
 // @Description Delete service_card. Roles: [admin, instructor]
 // @Summary delete service_card

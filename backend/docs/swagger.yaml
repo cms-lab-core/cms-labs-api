@@ -775,6 +775,10 @@ definitions:
         items:
           type: string
         type: array
+      server_ids:
+        items:
+          type: integer
+        type: array
       statuses:
         items:
           type: string
@@ -1883,6 +1887,20 @@ definitions:
         type: string
       result:
         $ref: '#/definitions/usecases.ServerListOutputDTO'
+    type: object
+  usecases.ServiceCardAvailableRequest:
+    properties:
+      id:
+        default: "1"
+        type: string
+      jsonrpc:
+        default: "2.0"
+        type: string
+      method:
+        default: service_card.available
+        type: string
+      params:
+        $ref: '#/definitions/usecases.ServiceCardListInputDTO'
     type: object
   usecases.ServiceCardDeleteInputDTO:
     properties:
@@ -3253,6 +3271,31 @@ paths:
       summary: create server_queue
       tags:
       - server_queue
+  /api/v1/rpc/service_card.available:
+    post:
+      consumes:
+      - application/json
+      description: Active service links for authenticated users; inactive cards are
+        excluded.
+      parameters:
+      - description: service card list parameters
+        in: body
+        name: object
+        required: true
+        schema:
+          $ref: '#/definitions/usecases.ServiceCardAvailableRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/usecases.ServiceCardListResponse'
+      security:
+      - ApiKeyAuth: []
+      summary: available service cards
+      tags:
+      - service_card
   /api/v1/rpc/service_card.delete:
     post:
       consumes:

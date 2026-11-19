@@ -50,7 +50,7 @@ export const CardServers = () => {
           variant='bordered'
           label={StatsChart.Status}
           selectedKeys={[status ?? '']}
-          onSelectionChange={(keys) => setStatus(keys.currentKey || '')}
+          onSelectionChange={(keys) => setStatus(keys === 'all' ? 'all' : String(Array.from(keys)[0] || 'all'))}
         >
           <SelectItem key='active'>{StatsChart.StatusValueActive}</SelectItem>
           <SelectItem key='all'>{StatsChart.StatusValueAll}</SelectItem>
@@ -59,7 +59,9 @@ export const CardServers = () => {
           variant='bordered'
           label={StatsChart.OrderBy}
           selectedKeys={[orderBy ?? '']}
-          onSelectionChange={(keys) => setOrderBy(keys.currentKey || '')}
+          onSelectionChange={(keys) =>
+            setOrderBy(keys === 'all' ? 'createdAt' : String(Array.from(keys)[0] || 'createdAt'))
+          }
         >
           <SelectItem key='unitRate'>{StatsChart.OrderByValueUnitRate}</SelectItem>
           <SelectItem key='lastCountUsers'>{StatsChart.OrderByValueLastCountUsers}</SelectItem>

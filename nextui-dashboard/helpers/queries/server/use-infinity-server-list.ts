@@ -23,7 +23,8 @@ export const useInfinityServerList = (params?: Params) => {
         params: {
           limit: params?.limit ?? 100,
           offset: pageParam,
-          search: (params?.search?.length || '') < 3 ? '' : params?.search,
+          search: params?.search?.trim() || '',
+          types: params?.types || [],
           orderBy: params?.orderBy || '',
           status: params?.status || ''
         } as Params

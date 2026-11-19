@@ -18,17 +18,17 @@ export const SSOAuthorizationSave = (params: Params) => {
       params: params,
       createdAt: dayjs().toString()
     };
-    localStorage.setItem(SSO_REDIRECT_PARAMS_KEY, JSON.stringify(payload));
+    sessionStorage.setItem(SSO_REDIRECT_PARAMS_KEY, JSON.stringify(payload));
   }
 };
 
 export const SSOAuthorizationReset = () => {
-  localStorage.setItem(SSO_REDIRECT_PARAMS_KEY, '');
+  sessionStorage.setItem(SSO_REDIRECT_PARAMS_KEY, '');
 };
 
 export const SSOAuthorizationGet = (): Params | null => {
   SSOAuthorizationSave(SSOAuthorizationParams());
-  const payloadString = localStorage.getItem(SSO_REDIRECT_PARAMS_KEY);
+  const payloadString = sessionStorage.getItem(SSO_REDIRECT_PARAMS_KEY);
   try {
     const payload = JSON.parse(payloadString || '') as SSORedirectSave;
     if (

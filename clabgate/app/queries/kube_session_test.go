@@ -494,3 +494,32 @@ func TestCheckerResultStatusUsesScoreAndTasks(t *testing.T) {
 		t.Fatalf("failed Job status = %q, want failed", got)
 	}
 }
+
+func TestWorkspaceExtraAnnotations(t *testing.T) {
+	client := kubernetesfake.NewSimpleClientset()
+	logger := zerolog.Nop()
+	admin := NewKubernetesAdminWithClients(client, nil, nil, &logger)
+	params := EnsureSessionParams{AttemptID: "annotations", StorageSize: "1Gi", JupyterImage: "example.test/jupyter:latest"}
+	ctx := context.Background()
+	for _, extra := range []map[string]string{nil, {"example.org/pool": "jupyter", "example.org/empty": ""}, nil} {
+		params.JupyterExtraAnnotations = extra
+		if err := admin.ensureWorkspace(ctx, "lab-test", params); err != nil {
+			t.Fatal(err)
+		}
+		deployment, err := client.AppsV1().Deployments("lab-test").Get(ctx, workspaceName, metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(deployment.Spec.Template.Annotations) != len(extra) {
+			t.Fatalf("annotations: %#v", deployment.Spec.Template.Annotations)
+		}
+		for key, value := range extra {
+			if deployment.Spec.Template.Annotations[key] != value {
+				t.Fatal("annotation was changed")
+			}
+		}
+		if len(deployment.Annotations) != 0 || deployment.Spec.Template.Labels[SessionComponentLabel] != SessionComponentWorkspace {
+			t.Fatal("changed unrelated metadata")
+		}
+	}
+}

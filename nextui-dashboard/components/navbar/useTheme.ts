@@ -1,28 +1,17 @@
-import { useTheme as useThemeNext } from 'next-themes';
 import { useEffect, useState } from 'react';
-import { useQueryUserGlobalStoreGet } from '@/helpers/queries/user/use-query-user-global-store-get';
-import { useMutationUserGlobalStoreSet } from '@/helpers/queries/user/use-mutation-user-global-store-set';
-
+import { usePreferences } from '@/helpers/preferences/context';
 export type ThemeType = 'dark' | 'light';
-
 const useThemeBrowser = () => {
-  const globalStoreQuery = useQueryUserGlobalStoreGet({});
-  const { mutate } = useMutationUserGlobalStoreSet();
-  const { setTheme: setBrowserTheme } = useThemeNext();
-  const globalStore = globalStoreQuery.data as Record<string, unknown> | undefined;
-  const storedTheme = globalStore?.theme === 'dark' ? 'dark' : 'light';
-  const [localTheme, setLocalTheme] = useState<ThemeType>();
-  const theme = localTheme || storedTheme;
+  const { values, update } = usePreferences();
+  const [systemDark, setSystemDark] = useState(() => window.matchMedia('(prefers-color-scheme: dark)').matches);
   useEffect(() => {
-    setBrowserTheme(theme);
-  }, [setBrowserTheme, theme]);
-  return {
-    theme,
-    setTheme: (theme: ThemeType) => {
-      setLocalTheme(theme);
-      setBrowserTheme(theme);
-      mutate({ ...(globalStore || {}), theme });
-    }
-  };
+    const media = window.matchMedia('(prefers-color-scheme: dark)');
+    const changed = () => setSystemDark(media.matches);
+    media.addEventListener('change', changed);
+    return () => media.removeEventListener('change', changed);
+  }, []);
+  const theme: ThemeType =
+    values.theme === 'dark' || values.theme === 'light' ? values.theme : systemDark ? 'dark' : 'light';
+  return { theme, setTheme: (theme: ThemeType) => update({ theme }) };
 };
 export default useThemeBrowser;

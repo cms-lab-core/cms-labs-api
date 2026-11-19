@@ -27,11 +27,11 @@ const generateCodeChallenge = async (verifier: string): Promise<string> => {
 };
 
 export const getCodeVerifier = (): string | null => {
-  return localStorage.getItem('pkce_code_verifier');
+  return sessionStorage.getItem('pkce_code_verifier');
 };
 
 export const setCodeVerifier = (verifier: string): void => {
-  localStorage.setItem('pkce_code_verifier', verifier);
+  sessionStorage.setItem('pkce_code_verifier', verifier);
 };
 
 export const SSOAuthorizationParams = () => {

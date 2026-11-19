@@ -22,6 +22,7 @@ import { useQuerySessionGet } from '@/helpers/queries/session/use-query-session-
 import { useMutationSessionStop } from '@/helpers/queries/session/use-mutation-session-stop';
 import { useMutationSessionCheck } from '@/helpers/queries/session/use-mutation-session-check';
 import { useMutationSessionOpen } from '@/helpers/queries/session/use-mutation-session-open';
+import { usePreferences } from '@/helpers/preferences/context';
 import { useMutationNodeAction } from '@/helpers/queries/node/use-mutation-node-action';
 import { useQueryTopologyGet } from '@/helpers/queries/topology/use-query-topology-get';
 
@@ -32,10 +33,6 @@ const errorMessage = (error: unknown): string => {
   }
   return error instanceof Error ? error.message : '';
 };
-
-const checksWidthKey = 'cms-labs-checks-width';
-const checksCollapsedKey = 'cms-labs-checks-collapsed';
-const tourSeenKey = 'cms-labs-workspace-tour-v1';
 
 export default function SessionPage() {
   const { sessionId } = useParams();
@@ -54,11 +51,13 @@ export default function SessionPage() {
   const [highlightedNode, setHighlightedNode] = useState<string>();
   const [stopModalOpen, setStopModalOpen] = useState(false);
   const [tourOpen, setTourOpen] = useState(false);
-  const [checksWidth, setChecksWidth] = useState(() => {
-    const stored = Number(localStorage.getItem(checksWidthKey));
-    return Number.isFinite(stored) && stored >= 320 && stored <= 600 ? stored : 400;
-  });
-  const [checksCollapsed, setChecksCollapsed] = useState(() => localStorage.getItem(checksCollapsedKey) === 'true');
+  const preferences = usePreferences();
+  const storedWidth = preferences.values.checksWidth;
+  const savedWidth = typeof storedWidth === 'number' && storedWidth >= 320 && storedWidth <= 600 ? storedWidth : 400;
+  const [resizeWidth, setResizeWidth] = useState<number>();
+  const checksWidth = resizeWidth ?? savedWidth;
+  const checksCollapsed = preferences.values.checksCollapsed === true;
+  const resizeWidthRef = useRef(checksWidth);
 
   const requestedTab = searchParams.get('tab');
   const activeTab: WorkspaceTab = isWorkspaceTab(requestedTab) ? requestedTab : 'overview';
@@ -136,10 +135,10 @@ export default function SessionPage() {
   }, [session?.title]);
 
   useEffect(() => {
-    if (!session || localStorage.getItem(tourSeenKey)) return;
+    if (!session || !preferences.ready || preferences.values.workspaceTourV1 === true) return;
     const timer = window.setTimeout(() => setTourOpen(true), 500);
     return () => window.clearTimeout(timer);
-  }, [session?.id]);
+  }, [session?.id, preferences.ready, preferences.values.workspaceTourV1]);
 
   const changeTab = useCallback(
     (tab: WorkspaceTab) => {
@@ -190,34 +189,34 @@ export default function SessionPage() {
     );
   }, [check, sessionId, sessionQuery]);
 
-  const beginResize = useCallback((event: ReactPointerEvent<HTMLDivElement>) => {
-    event.preventDefault();
-    const onMove = (moveEvent: PointerEvent) => {
-      const width = Math.min(600, Math.max(320, window.innerWidth - moveEvent.clientX));
-      setChecksWidth(width);
-    };
-    const onEnd = () => {
-      window.removeEventListener('pointermove', onMove);
-      window.removeEventListener('pointerup', onEnd);
-      document.body.style.cursor = '';
-      document.body.style.userSelect = '';
-      setChecksWidth((width) => {
-        localStorage.setItem(checksWidthKey, width.toString());
-        return width;
-      });
-    };
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    window.addEventListener('pointermove', onMove);
-    window.addEventListener('pointerup', onEnd);
-  }, []);
+  const beginResize = useCallback(
+    (event: ReactPointerEvent<HTMLDivElement>) => {
+      event.preventDefault();
+      resizeWidthRef.current = checksWidth;
+      const onMove = (moveEvent: PointerEvent) => {
+        const width = Math.min(600, Math.max(320, window.innerWidth - moveEvent.clientX));
+        resizeWidthRef.current = width;
+        setResizeWidth(width);
+      };
+      const onEnd = () => {
+        window.removeEventListener('pointermove', onMove);
+        window.removeEventListener('pointerup', onEnd);
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+        preferences.update({ checksWidth: resizeWidthRef.current });
+        setResizeWidth(undefined);
+      };
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+      window.addEventListener('pointermove', onMove);
+      window.addEventListener('pointerup', onEnd);
+    },
+    [checksWidth, preferences.update]
+  );
 
   const toggleChecks = useCallback(() => {
-    setChecksCollapsed((value) => {
-      localStorage.setItem(checksCollapsedKey, (!value).toString());
-      return !value;
-    });
-  }, []);
+    preferences.update({ checksCollapsed: !checksCollapsed });
+  }, [checksCollapsed, preferences.update]);
 
   const workspaceError = useMemo(
     () => (open.isError ? errorMessage(open.error) || copy.workspaceError : undefined),
@@ -233,9 +232,9 @@ export default function SessionPage() {
   );
 
   const completeTour = useCallback(() => {
-    localStorage.setItem(tourSeenKey, 'true');
+    preferences.update({ workspaceTourV1: true });
     setTourOpen(false);
-  }, []);
+  }, [preferences.update]);
 
   if (!sessionId) {
     return <ErrorModal title={copy.sessionError} description={copy.invalidSession} />;

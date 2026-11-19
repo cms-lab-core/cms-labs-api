@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"sort"
 	"strings"
 	"time"
@@ -128,6 +129,7 @@ type EnsureSessionParams struct {
 	TestPath                string
 	LabManifest             string
 	JupyterImage            string
+	JupyterExtraAnnotations map[string]string
 	StorageSize             string
 	WorkspacePrefix         string
 	TaskRepository          string
@@ -331,7 +333,7 @@ func (k *KubernetesAdminQuery) ensureWorkspace(
 			Strategy: appsv1.DeploymentStrategy{Type: appsv1.RecreateDeploymentStrategyType},
 			Selector: &metav1.LabelSelector{MatchLabels: labelsMap},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: labelsMap},
+				ObjectMeta: metav1.ObjectMeta{Labels: labelsMap, Annotations: maps.Clone(params.JupyterExtraAnnotations)},
 				Spec: corev1.PodSpec{
 					AutomountServiceAccountToken: boolPtr(false),
 					EnableServiceLinks:           boolPtr(false),

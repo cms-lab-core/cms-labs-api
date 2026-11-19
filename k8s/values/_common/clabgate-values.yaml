@@ -1,3 +1,8 @@
+configMaps:
+  jupyter-options:
+    data:
+      extraAnnotations: {}
+
 services:
   clabgate:
     ports:
@@ -63,6 +68,9 @@ deployments:
             fetch_secrets --path=clabgate --output=/var/run/secrets/app --formats=env
     containers:
       - name: clabgate
+        envsFromConfigmap:
+          jupyter-options:
+            - JUPYTER_EXTRA_ANNOTATIONS: extraAnnotations
         env:
           - name: POD_NAME
             valueFrom:

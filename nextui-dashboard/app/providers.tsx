@@ -1,8 +1,7 @@
 'use client';
 import * as React from 'react';
 import { HeroUIProvider } from '@heroui/system';
-import { ThemeProvider as NextThemesProvider } from 'next-themes';
-import { ThemeProviderProps } from 'next-themes/dist/types';
+import { PreferencesProvider } from '@/helpers/preferences/context';
 import { UserProfileProvider } from '@/components/providers/auth-jwt/context';
 import { QueryClientProvider } from '@tanstack/react-query';
 import queryClient from '@/helpers/queries/base';
@@ -11,24 +10,20 @@ import RoutesDynamic from '@/app/routes';
 import { ToastProvider } from '@heroui/toast';
 import { zIndexClassToast } from '@/components/providers/const';
 
-export interface ProvidersProps {
-  themeProps?: ThemeProviderProps;
-}
-
-export function Providers({ themeProps }: ProvidersProps) {
+export function Providers() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter basename='/'>
         <UserProfileProvider>
           <HeroUIProvider>
-            <NextThemesProvider defaultTheme='system' attribute='class' {...themeProps}>
+            <PreferencesProvider>
               <ToastProvider
                 regionProps={{
                   classNames: { base: zIndexClassToast }
                 }}
               />
               <RoutesDynamic />
-            </NextThemesProvider>
+            </PreferencesProvider>
           </HeroUIProvider>
         </UserProfileProvider>
       </BrowserRouter>

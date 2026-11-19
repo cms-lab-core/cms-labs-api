@@ -25,7 +25,8 @@ export const useInfinityLtiAttemptList = (params?: Params) => {
           offset: pageParam,
           statuses: params?.statuses || [],
           userIds: params?.userIds || [],
-          serverClientIds: params?.serverClientIds || []
+          serverClientIds: params?.serverClientIds || [],
+          serverIds: params?.serverIds || []
         } as Params
       });
     },

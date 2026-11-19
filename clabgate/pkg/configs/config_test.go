@@ -55,3 +55,30 @@ func TestWorkspaceCookieSecureConfiguration(t *testing.T) {
 		t.Fatal("invalid WORKSPACE_COOKIE_SECURE must use the secure default")
 	}
 }
+
+func TestJupyterExtraAnnotations(t *testing.T) {
+	for _, value := range []string{"", "{}", "null"} {
+		t.Setenv("JUPYTER_EXTRA_ANNOTATIONS", value)
+		if len(NewAppConfigModel().Session.JupyterExtraAnnotations) != 0 {
+			t.Fatal("annotations must be empty by default")
+		}
+	}
+	t.Setenv("JUPYTER_EXTRA_ANNOTATIONS", `{"example.org/pool":"jupyter","example.org/empty":""}`)
+	got := NewAppConfigModel().Session.JupyterExtraAnnotations
+	if got["example.org/pool"] != "jupyter" || len(got) != 2 {
+		t.Fatalf("annotations: %#v", got)
+	}
+}
+func TestJupyterExtraAnnotationsRejectInvalidConfig(t *testing.T) {
+	for _, value := range []string{`{`, `{"pool":true}`, `["pool"]`} {
+		t.Run(value, func(t *testing.T) {
+			t.Setenv("JUPYTER_EXTRA_ANNOTATIONS", value)
+			defer func() {
+				if recover() == nil {
+					t.Fatal("invalid annotation config was silently accepted")
+				}
+			}()
+			NewAppConfigModel()
+		})
+	}
+}

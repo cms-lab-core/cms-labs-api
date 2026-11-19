@@ -955,6 +955,45 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/rpc/service_card.available": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Active service links for authenticated users; inactive cards are excluded.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "service_card"
+                ],
+                "summary": "available service cards",
+                "parameters": [
+                    {
+                        "description": "service card list parameters",
+                        "name": "object",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/usecases.ServiceCardAvailableRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/usecases.ServiceCardListResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/rpc/service_card.delete": {
             "post": {
                 "security": [
@@ -3425,6 +3464,12 @@ const docTemplate = `{
                         "type": "string"
                     }
                 },
+                "server_ids": {
+                    "type": "array",
+                    "items": {
+                        "type": "integer"
+                    }
+                },
                 "statuses": {
                     "type": "array",
                     "items": {
@@ -5032,6 +5077,26 @@ const docTemplate = `{
                 },
                 "result": {
                     "$ref": "#/definitions/usecases.ServerListOutputDTO"
+                }
+            }
+        },
+        "usecases.ServiceCardAvailableRequest": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "default": "1"
+                },
+                "jsonrpc": {
+                    "type": "string",
+                    "default": "2.0"
+                },
+                "method": {
+                    "type": "string",
+                    "default": "service_card.available"
+                },
+                "params": {
+                    "$ref": "#/definitions/usecases.ServiceCardListInputDTO"
                 }
             }
         },

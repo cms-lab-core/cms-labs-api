@@ -10,9 +10,10 @@ type ServiceCardListUC struct {
 }
 
 type ServiceCardListInputDTO struct {
-	Search string `json:"search"`
-	Limit  int    `json:"limit"`
-	Offset int    `json:"offset"`
+	OnlyActive bool   `json:"-"`
+	Search     string `json:"search"`
+	Limit      int    `json:"limit"`
+	Offset     int    `json:"offset"`
 }
 
 type ServiceCardListOutputDTO struct {
@@ -27,6 +28,13 @@ type ServiceCardListRequest struct {
 	ID      string                  `json:"id,omitempty" default:"1" required:"true"`
 }
 
+type ServiceCardAvailableRequest struct {
+	JSONRPC string                  `json:"jsonrpc" default:"2.0" required:"true"`
+	Method  string                  `json:"method" default:"service_card.available" required:"true"`
+	Params  ServiceCardListInputDTO `json:"params,omitempty"`
+	ID      string                  `json:"id,omitempty" default:"1" required:"true"`
+}
+
 type ServiceCardListResponse struct {
 	JSONRPC string                   `json:"jsonrpc" default:"2.0" required:"true"`
 	Result  ServiceCardListOutputDTO `json:"result,omitempty"`
@@ -35,7 +43,13 @@ type ServiceCardListResponse struct {
 }
 
 func (u *ServiceCardListUC) Execute(dto ServiceCardListInputDTO) (ServiceCardListOutputDTO, error) {
-	entities, count, err := u.ServiceCardQueries.List(dto.Search, dto.Limit, dto.Offset)
+	if dto.Limit <= 0 || dto.Limit > queries.MaxLimitCount {
+		dto.Limit = 100
+	}
+	if dto.Offset < 0 {
+		dto.Offset = 0
+	}
+	entities, count, err := u.ServiceCardQueries.List(dto.Search, dto.Limit, dto.Offset, dto.OnlyActive)
 	return ServiceCardListOutputDTO{
 		Model:      entities,
 		TotalCount: count,

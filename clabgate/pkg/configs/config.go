@@ -1,6 +1,8 @@
 package configs
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"strconv"
 
@@ -27,6 +29,7 @@ type SessionConfig struct {
 	TaskRepositoryToken     string
 	JupyterImage            string
 	JupyterStorage          string
+	JupyterExtraAnnotations map[string]string
 	WorkspacePrefix         string
 	WorkspaceSecret         string
 	WorkspaceGrantTTL       int64
@@ -61,6 +64,7 @@ func (c *AppConfigModel) Reload() {
 		TaskRepositoryToken:     getEnvDefault("TASK_REPOSITORY_TOKEN", os.Getenv("GITLAB_TOKEN")),
 		JupyterImage:            os.Getenv("JUPYTER_IMAGE"),
 		JupyterStorage:          getEnvDefault("JUPYTER_STORAGE_SIZE", "1Gi"),
+		JupyterExtraAnnotations: getEnvAnnotations("JUPYTER_EXTRA_ANNOTATIONS"),
 		WorkspacePrefix:         getEnvDefault("WORKSPACE_PROXY_PREFIX", "/clabgate/workspace"),
 		WorkspaceSecret:         os.Getenv("WORKSPACE_AUTH_SECRET"),
 		WorkspaceGrantTTL:       getEnvInt64Default("WORKSPACE_GRANT_TTL_SECONDS", 300),
@@ -115,3 +119,15 @@ func NewAppConfigModel() *AppConfigModel {
 }
 
 var AppConfig = NewAppConfigModel()
+
+func getEnvAnnotations(name string) map[string]string {
+	value := os.Getenv(name)
+	if value == "" {
+		return nil
+	}
+	var annotations map[string]string
+	if err := json.Unmarshal([]byte(value), &annotations); err != nil {
+		panic(fmt.Sprintf("invalid %s: expected a JSON object with string values: %v", name, err))
+	}
+	return annotations
+}

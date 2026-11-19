@@ -7,35 +7,21 @@ import { useQueryServiceCardList } from '@/helpers/queries/service_card/use-quer
 import { ChevronDown } from 'lucide-react';
 import { useSidebarContext } from '@/components/layout/layout-context';
 
-const DropdownServiceCards = () => {
-  const response = useQueryServiceCardList({});
-  const rows = response?.data?.model || [];
-  return rows
-    .filter((service) => service.isActive)
-    .map((service, index) => {
-      return (
-        <DropdownItem
-          key={index}
-          onPress={() => {
-            window.open(service.url, '_blank');
-          }}
-          href={service.url || '#'}
-          target='_blank'
-          startContent={service.imageUrl && <Image src={service.imageUrl} width={30} alt={service.imageUrl} />}
-          description={service.description}
-          classNames={{
-            base: 'py-4',
-            title: 'text-base font-semibold'
-          }}
-        >
-          {service.name}
-        </DropdownItem>
-      );
-    });
-};
-
 export const ServicesDropdown = () => {
-  const { locale } = useLanguageBrowser();
+  const { locale, lang } = useLanguageBrowser();
+  const response = useQueryServiceCardList({}, true);
+  const rows = (response.data?.model || []).filter((service) => service.isActive && service.url);
+  const emptyMessage = response.isLoading
+    ? lang === 'ru'
+      ? 'Загрузка сервисов…'
+      : 'Loading services…'
+    : response.isError
+      ? lang === 'ru'
+        ? 'Повторить загрузку сервисов'
+        : 'Retry loading services'
+      : lang === 'ru'
+        ? 'Нет доступных сервисов'
+        : 'No services available';
   const { collapsed } = useSidebarContext();
   const company = {
     title: locale.CompaniesDropdown.Title,
@@ -64,7 +50,34 @@ export const ServicesDropdown = () => {
         </div>
       </DropdownTrigger>
       <DropdownMenu aria-label='Avatar Actions'>
-        <DropdownSection title={locale.Tables.ServiceCardsTable.Title}>{DropdownServiceCards()}</DropdownSection>
+        <DropdownSection title={locale.Tables.ServiceCardsTable.Title}>
+          {rows.length > 0 ? (
+            rows.map((service) => (
+              <DropdownItem
+                key={String(service.id)}
+                href={service.url}
+                target='_blank'
+                rel='noopener noreferrer'
+                startContent={service.imageUrl ? <Image src={service.imageUrl} width={30} alt='' /> : undefined}
+                description={service.description}
+                textValue={service.name}
+                classNames={{ base: 'py-4', title: 'text-base font-semibold' }}
+              >
+                {service.name}
+              </DropdownItem>
+            ))
+          ) : (
+            <DropdownItem
+              key='empty-services'
+              isDisabled={!response.isError}
+              onPress={() => {
+                void response.refetch();
+              }}
+            >
+              {emptyMessage}
+            </DropdownItem>
+          )}
+        </DropdownSection>
       </DropdownMenu>
     </Dropdown>
   );
