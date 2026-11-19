@@ -502,7 +502,7 @@ func TestWorkspaceExtraAnnotations(t *testing.T) {
 	params := EnsureSessionParams{AttemptID: "annotations", StorageSize: "1Gi", JupyterImage: "example.test/jupyter:latest"}
 	ctx := context.Background()
 	for _, extra := range []map[string]string{nil, {"example.org/pool": "jupyter", "example.org/empty": ""}, nil} {
-		params.JupyterExtraAnnotations = extra
+		params.JupyterPod.ExtraAnnotations = extra
 		if err := admin.ensureWorkspace(ctx, "lab-test", params); err != nil {
 			t.Fatal(err)
 		}
@@ -520,6 +520,45 @@ func TestWorkspaceExtraAnnotations(t *testing.T) {
 		}
 		if len(deployment.Annotations) != 0 || deployment.Spec.Template.Labels[SessionComponentLabel] != SessionComponentWorkspace {
 			t.Fatal("changed unrelated metadata")
+		}
+	}
+}
+
+func TestWorkspacePlacementFromConfig(t *testing.T) {
+	client := kubernetesfake.NewSimpleClientset()
+	logger := zerolog.Nop()
+	admin := NewKubernetesAdminWithClients(client, nil, nil, &logger)
+	params := EnsureSessionParams{AttemptID: "placement", StorageSize: "1Gi", JupyterImage: "example.test/jupyter:latest"}
+	ctx := context.Background()
+	params.JupyterPod.NodeSelector = map[string]string{"kubernetes.io/os": "linux"}
+	params.JupyterPod.Affinity = &corev1.Affinity{NodeAffinity: &corev1.NodeAffinity{
+		RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{NodeSelectorTerms: []corev1.NodeSelectorTerm{{
+			MatchExpressions: []corev1.NodeSelectorRequirement{{Key: "kubernetes.io/hostname", Operator: corev1.NodeSelectorOpIn, Values: []string{"k8s-prod-jup-1-cms"}}},
+		}}},
+	}}
+	for _, configured := range []bool{true, false} {
+		if !configured {
+			params.JupyterPod.NodeSelector = nil
+			params.JupyterPod.Affinity = nil
+		}
+		if err := admin.ensureWorkspace(ctx, "lab-test", params); err != nil {
+			t.Fatal(err)
+		}
+		deployment, err := client.AppsV1().Deployments("lab-test").Get(ctx, workspaceName, metav1.GetOptions{})
+		if err != nil {
+			t.Fatal(err)
+		}
+		pod := deployment.Spec.Template.Spec
+		if configured {
+			if pod.NodeSelector["kubernetes.io/os"] != "linux" || pod.Affinity == nil || pod.Affinity.NodeAffinity == nil {
+				t.Fatal("pod placement config was not applied")
+			}
+			expr := pod.Affinity.NodeAffinity.RequiredDuringSchedulingIgnoredDuringExecution.NodeSelectorTerms[0].MatchExpressions[0]
+			if expr.Key != "kubernetes.io/hostname" || expr.Operator != corev1.NodeSelectorOpIn || len(expr.Values) != 1 || expr.Values[0] != "k8s-prod-jup-1-cms" {
+				t.Fatalf("incorrect node allowlist: %#v", expr)
+			}
+		} else if len(pod.NodeSelector) != 0 || pod.Affinity != nil {
+			t.Fatal("cleared config must remove pod placement restrictions")
 		}
 	}
 }

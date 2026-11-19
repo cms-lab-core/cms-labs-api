@@ -193,7 +193,7 @@ func (u *SessionsUC) ensureAttemptSession(
 		TestPath:                attempt.TestPath,
 		LabManifest:             bundle.Manifest,
 		JupyterImage:            configs.AppConfig.Session.JupyterImage,
-		JupyterExtraAnnotations: configs.AppConfig.Session.JupyterExtraAnnotations,
+		JupyterPod:              configs.AppConfig.Session.JupyterPod,
 		StorageSize:             configs.AppConfig.Session.JupyterStorage,
 		WorkspacePrefix:         configs.AppConfig.Session.WorkspacePrefix,
 		TaskRepository:          repositoryURL,

@@ -1,7 +1,10 @@
 configMaps:
   jupyter-options:
     data:
-      extraAnnotations: {}
+      config.yaml:
+        extraAnnotations: {}
+        nodeSelector: {}
+        affinity: null
 
 services:
   clabgate:
@@ -58,6 +61,11 @@ deployments:
   clabgate:
     serviceAccountName: clabgate
     replicas: 2
+    podAnnotations:
+      checksum/jupyter-options: '{{ index .Values.configMaps "jupyter-options" | toJson | sha256sum }}'
+    volumes:
+      - name: jupyter-options
+        type: configMap
     initContainers:
       - name: vault-init
         image: harbor.k8s.cmslabs.ru/svc_cms_labs/images/vault-inject
@@ -68,9 +76,10 @@ deployments:
             fetch_secrets --path=clabgate --output=/var/run/secrets/app --formats=env
     containers:
       - name: clabgate
-        envsFromConfigmap:
-          jupyter-options:
-            - JUPYTER_EXTRA_ANNOTATIONS: extraAnnotations
+        volumeMounts:
+          - name: jupyter-options
+            mountPath: /etc/clabgate/jupyter
+            readOnly: true
         env:
           - name: POD_NAME
             valueFrom:

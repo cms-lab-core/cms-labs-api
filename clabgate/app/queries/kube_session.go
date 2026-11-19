@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cms-lab-core/cms-labs-api/clabgate/pkg/configs"
 	"github.com/google/uuid"
 	appsv1 "k8s.io/api/apps/v1"
 	batchv1 "k8s.io/api/batch/v1"
@@ -129,7 +130,7 @@ type EnsureSessionParams struct {
 	TestPath                string
 	LabManifest             string
 	JupyterImage            string
-	JupyterExtraAnnotations map[string]string
+	JupyterPod              configs.JupyterPodConfig
 	StorageSize             string
 	WorkspacePrefix         string
 	TaskRepository          string
@@ -333,8 +334,10 @@ func (k *KubernetesAdminQuery) ensureWorkspace(
 			Strategy: appsv1.DeploymentStrategy{Type: appsv1.RecreateDeploymentStrategyType},
 			Selector: &metav1.LabelSelector{MatchLabels: labelsMap},
 			Template: corev1.PodTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{Labels: labelsMap, Annotations: maps.Clone(params.JupyterExtraAnnotations)},
+				ObjectMeta: metav1.ObjectMeta{Labels: labelsMap, Annotations: maps.Clone(params.JupyterPod.ExtraAnnotations)},
 				Spec: corev1.PodSpec{
+					NodeSelector:                 maps.Clone(params.JupyterPod.NodeSelector),
+					Affinity:                     params.JupyterPod.Affinity.DeepCopy(),
 					AutomountServiceAccountToken: boolPtr(false),
 					EnableServiceLinks:           boolPtr(false),
 					SecurityContext:              &corev1.PodSecurityContext{RunAsUser: int64Ptr(1000), RunAsGroup: int64Ptr(100), FSGroup: int64Ptr(100)},
