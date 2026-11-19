@@ -47,7 +47,7 @@ func (u *ServerListUC) Execute(dto queries.ServerQueriesListDTO) (ServerListOutp
 	if err != nil {
 		return ServerListOutputDTO{}, err
 	}
-	result := ServerListOutputDTO{TotalCount: count}
+	result := ServerListOutputDTO{Model: make([]ServerListModel, 0, len(entities)), TotalCount: count}
 	for _, entity := range entities {
 		item := ServerListModel{
 			Model: entity,

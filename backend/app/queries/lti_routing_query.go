@@ -2,9 +2,9 @@ package queries
 
 import (
 	"fmt"
-	"strings"
 	"time"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/listfilter"
 	"github.com/rs/zerolog"
 
 	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
@@ -31,10 +31,7 @@ func (q *LTIRoutingQueries) Get(id uint) (models.LTIRouting, error) {
 func (q *LTIRoutingQueries) ListLabs(search string) ([]models.LTIRouting, error) {
 	entities := make([]models.LTIRouting, 0)
 	tx := q.DB.Order("id ASC")
-	if search = strings.TrimSpace(search); search != "" {
-		like := "%" + search + "%"
-		tx = tx.Where("name LIKE ? OR lti_description LIKE ?", like, like)
-	}
+	tx = listfilter.Search(tx, search, "id", "name", "lti_description", "labs_path")
 	return entities, tx.Find(&entities).Error
 }
 
@@ -71,28 +68,20 @@ func (q *LTIRoutingQueries) List(
 	offset int,
 ) ([]models.LTIRoutingListItem, int64, error) {
 	var entities []models.LTIRoutingListItem
-	result := q.listFilter(
-		search,
-		q.DB.Limit(MaxLimitCount).Offset(0),
-	).Find(&entities)
-	count := result.RowsAffected
-	q.Logger.Debug().Msg(fmt.Sprintf("LTIRoutingQueries list: count %+v", count))
-	result = q.listFilter(
-		search,
-		q.DB.Limit(limit).Offset(offset),
-	).Find(&entities)
-	q.Logger.Debug().Msg(fmt.Sprintf("LTIRoutingQueries list: entities %+v", entities))
+	query := q.listFilter(search, q.DB)
+	var count int64
+	if err := query.Session(&gorm.Session{}).Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	limit, offset = listfilter.Pagination(limit, offset)
+	result := query.Limit(limit).Offset(offset).Find(&entities)
 	return entities, count, result.Error
 }
 
 func (q *LTIRoutingQueries) listFilter(search string, tx *gorm.DB) *gorm.DB {
 	tx = tx.Model(&models.LTIRouting{})
 	tx = tx.Order(`created_at desc`)
-	if search == "" {
-		return tx
-	}
-	tx = tx.Or("id = ?", search)
-	return tx
+	return listfilter.Search(tx.Order("id DESC"), search, "id", "name", "lti_title", "lti_description", "labs_path", "test_path")
 }
 
 func (q *LTIRoutingQueries) GetRelevantRouting(

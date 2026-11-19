@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/listfilter"
 	"github.com/rs/zerolog"
 
 	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
@@ -112,17 +113,13 @@ func (q *AuthProviderQueries) List(
 	dto *AuthProviderListInputDTO,
 ) ([]models.AuthProviderListItem, int64, error) {
 	var entities []models.AuthProviderListItem
-	result := q.listFilter(
-		dto,
-		q.DB.Limit(MaxLimitCount).Offset(0),
-	).Find(&entities)
-	count := result.RowsAffected
-	q.Logger.Debug().Msg(fmt.Sprintf("AuthProviderQueries list: count %+v", count))
-	result = q.listFilter(
-		dto,
-		q.DB.Limit(dto.Limit).Offset(dto.Offset),
-	).Find(&entities)
-	q.Logger.Debug().Msg(fmt.Sprintf("AuthProviderQueries list: entities %+v", entities))
+	query := q.listFilter(dto, q.DB)
+	var count int64
+	if err := query.Session(&gorm.Session{}).Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	limit, offset := listfilter.Pagination(dto.Limit, dto.Offset)
+	result := query.Limit(limit).Offset(offset).Find(&entities)
 	return entities, count, result.Error
 }
 
@@ -135,13 +132,7 @@ func (q *AuthProviderQueries) listFilter(dto *AuthProviderListInputDTO, tx *gorm
 			models.AuthProviderTypeLTI, models.AuthProviderTypeLDAP)
 	}
 
-	if dto.Search != "" {
-		searchCond := tx.Where(
-			"base_uri LIKE ?",
-			fmt.Sprintf("%%%s%%", dto.Search),
-		).Or("id = ?", dto.Search)
-		tx = tx.Where(searchCond)
-	}
+	tx = listfilter.Search(tx.Order("id DESC"), dto.Search, "id", "name", "base_uri", "type", "sso_url")
 
 	return tx
 }

@@ -18,9 +18,10 @@ export const useInfinityAuthProviderList = (params?: Params) => {
       return transportWithAuth.rpc<Response>(CoreJsonRpcPath, {
         method: 'auth_provider.list',
         params: {
+          ...params,
           limit: params?.limit ?? 100,
           offset: pageParam,
-          search: (params?.search?.length || '') < 3 ? '' : params?.search
+          search: params?.search?.trim() || ''
         } as Params
       });
     },
@@ -29,8 +30,8 @@ export const useInfinityAuthProviderList = (params?: Params) => {
     gcTime: 0,
     getNextPageParam: (response, pages) => {
       const totalCount = response?.totalCount || 0;
-      const count = pages.flatMap((p) => p?.model).length;
-      return totalCount && totalCount > count ? count : undefined;
+      const count = pages.flatMap((p) => p?.model ?? []).length;
+      return response?.model?.length && totalCount > count ? count : undefined;
     },
     initialPageParam: 0,
     retry: 3

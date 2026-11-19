@@ -13,8 +13,8 @@ import { CamelCasedPropertiesDeep } from 'type-fest';
 type Params = CamelCasedPropertiesDeep<UsecasesUserListRequest['params']> & object;
 type Response = CamelCasedPropertiesDeep<UsecasesUserListResponse['result']>;
 
-export const useQueryUserList = (params: Params) => {
+export const useQueryUserList = (params: Params, enabled = true) => {
   return useQuery(
-    transportWithAuth.getQueryOptions<Response, Params>(CoreJsonRpcPath, 'user.list', params, { retry: 3 })
+    transportWithAuth.getQueryOptions<Response, Params>(CoreJsonRpcPath, 'user.list', params, { retry: 3, enabled })
   );
 };

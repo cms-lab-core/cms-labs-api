@@ -49,7 +49,7 @@ export const FilterSelector = ({
     let items = defaultValues;
 
     if (search.trim()) {
-      const q = search.toLowerCase();
+      const q = search.trim().toLowerCase();
       items = items.filter((item) => item.value.toLowerCase().includes(q));
       // при поиске не показываем «Все»
       return items;
@@ -141,7 +141,16 @@ export const FilterSelector = ({
       </PopoverTrigger>
 
       <PopoverContent className='p-0 min-w-[50px]'>
-        <div className='flex flex-col'>
+        <div
+          className='flex flex-col'
+          onKeyDownCapture={(event) => {
+            if (event.key === 'Escape') {
+              event.stopPropagation();
+              setIsOpen(false);
+              setSearch('');
+            }
+          }}
+        >
           {/* --- Поиск --- */}
           {showSearch && (
             <div className='p-2'>

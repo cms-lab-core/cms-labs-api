@@ -15,8 +15,12 @@ function createTagFilter(filterTags: string[]) {
   return (target: TargetNodeType) => {
     const targetTags = target?.taget?.tags ?? [];
     const targetInternalTags = target?.taget?.internalTags ?? [];
-    const hasIntersectionWithTags = filterTags.some((tag) => targetTags.includes(tag));
-    const hasIntersectionWithInternal = filterTags.some((tag) => targetInternalTags.includes(tag));
+    const hasIntersectionWithTags = filterTags.some((tag) =>
+      targetTags.some((value) => value.toLowerCase() === tag.toLowerCase())
+    );
+    const hasIntersectionWithInternal = filterTags.some((tag) =>
+      targetInternalTags.some((value) => value.toLowerCase() === tag.toLowerCase())
+    );
     return hasIntersectionWithTags || hasIntersectionWithInternal;
   };
 }
@@ -26,7 +30,7 @@ export const filterTargets = (
   { tags, layers, mine, search }: TargetMapFilter
 ): TargetNodeType[] => {
   if (!targets) return [];
-  const searchQuery = search || '';
+  const searchQuery = search?.trim().toLowerCase() || '';
 
   // Фильтрация по поисковому запросу
   let searchFiltered = searchQuery.trim()
@@ -34,8 +38,10 @@ export const filterTargets = (
         [
           target.taget.name?.toLowerCase(),
           target.taget.id?.toLowerCase(),
-          target.taget.description?.toLowerCase() || ''
-        ].some((field) => field?.includes(searchQuery?.toLowerCase()))
+          target.taget.description?.toLowerCase(),
+          ...(target.taget.tags ?? []).map((tag) => tag.toLowerCase()),
+          ...(target.taget.internalTags ?? []).map((tag) => tag.toLowerCase())
+        ].some((field) => field?.includes(searchQuery))
       )
     : targets;
 

@@ -2,19 +2,23 @@ import { InputProps } from '@heroui/input/dist/input';
 import { useQueryUserList } from '@/helpers/queries/user/use-query-user-list';
 
 export const useQueryUserAutoComplete = (search: string, props: InputProps) => {
-  const _id = parseInt(props.value || '');
+  const id = Number(props.value);
+  const hasSelection = Number.isSafeInteger(id) && id > 0;
   const queryList = useQueryUserList({
     search: search,
     limit: 20,
     offset: 0
   });
-  const queryListItem = useQueryUserList({
-    userIds: [_id],
-    limit: 1,
-    offset: 0
-  });
+  const queryListItem = useQueryUserList(
+    {
+      userIds: hasSelection ? [id] : [],
+      limit: 1,
+      offset: 0
+    },
+    hasSelection
+  );
   const entitiesSearch = queryList?.data?.model || [];
-  const entityCurrent = queryListItem?.data?.model?.[0];
+  const entityCurrent = hasSelection ? queryListItem?.data?.model?.[0] : undefined;
   const entities =
     entityCurrent && !entitiesSearch.find((entity) => entity.model.id === entityCurrent.model.id)
       ? [...entitiesSearch, entityCurrent]

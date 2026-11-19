@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/ory/go-convenience/stringsx"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/listfilter"
 	"github.com/rs/zerolog"
 
 	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
@@ -156,13 +157,14 @@ func (q *LTIAttemptQueries) List(
 	}
 
 	var entities []models.LTIAttemptListItem
+	limit, offset := listfilter.Pagination(search.Limit, search.Offset)
 	result := q.listFilter(
 		search,
-		q.DB.Limit(search.Limit).Offset(search.Offset),
+		q.DB.Limit(limit).Offset(offset),
 	).Select(
 		"lti_attempts.id, lti_attempts.attempt_id, lti_attempts.status, lti_attempts.result, lti_attempts.user_id, lti_attempts.server_id, lti_attempts.lti_routing_id, lti_attempts.id, lti_attempts.synchronized_at, lti_attempts.created_at, lti_attempts.updated_at, " +
 			"user.email as user_email, user.name as user_name, servers.name as server_name, lti_routings.name as lti_routing_name, lti_routings.labs_path as repository, lti_routings.test_path as test_path",
-	).Order(`lti_attempts.created_at desc`).Find(&entities)
+	).Order(`lti_attempts.created_at desc`).Order(`lti_attempts.id desc`).Find(&entities)
 	return entities, count, result.Error
 }
 
@@ -172,7 +174,7 @@ func (q *LTIAttemptQueries) listFilter(search *LTIAttemptSearchParams, tx *gorm.
 	).Joins(
 		"join " + q.tableName(&models.User{}) + " user on user.id = lti_attempts.user_id",
 	).Joins(
-		"join " + q.tableName(&models.Server{}) + " servers on servers.id = lti_attempts.server_id",
+		"left join " + q.tableName(&models.Server{}) + " servers on servers.id = lti_attempts.server_id",
 	).Joins(
 		"join " + q.tableName(&models.LTIRouting{}) + " lti_routings on lti_routings.id = lti_attempts.lti_routing_id",
 	)

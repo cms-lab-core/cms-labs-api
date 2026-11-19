@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/listfilter"
 	"github.com/rs/zerolog"
 
 	"github.com/google/uuid"
@@ -107,17 +108,13 @@ func (q *ServerQueries) Upsert(entity *models.Server) error {
 
 func (q *ServerQueries) List(filter ServerQueriesListDTO) ([]models.ServerListItem, int64, error) {
 	var entities []models.ServerListItem
-	result := q.listFilter(
-		filter,
-		q.DB.Limit(MaxLimitCount).Offset(0),
-	).Find(&entities)
-	count := result.RowsAffected
-	q.Logger.Debug().Msg(fmt.Sprintf("ServerQueries list: count %+v", count))
-	result = q.listFilter(
-		filter,
-		q.DB.Limit(filter.Limit).Offset(filter.Offset),
-	).Find(&entities)
-	q.Logger.Debug().Msg(fmt.Sprintf("ServerQueries list: entities %+v", entities))
+	query := q.listFilter(filter, q.DB)
+	var count int64
+	if err := query.Session(&gorm.Session{}).Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	limit, offset := listfilter.Pagination(filter.Limit, filter.Offset)
+	result := query.Limit(limit).Offset(offset).Find(&entities)
 	return entities, count, result.Error
 }
 
@@ -141,10 +138,8 @@ func (q *ServerQueries) listFilter(filter ServerQueriesListDTO, tx *gorm.DB) *go
 		tx = tx.Where("type IN (?)", filter.Types)
 	}
 
-	if filter.Search != "" {
-		searchPattern := "%" + filter.Search + "%"
-		tx = tx.Where("name LIKE ? OR url LIKE ? OR id = ? OR client_id = ?", searchPattern, searchPattern, filter.Search, filter.Search)
-	}
+	tx = listfilter.Search(tx, filter.Search, "servers.id", "servers.name", "servers.url", "servers.client_id")
+	tx = tx.Order("servers.id DESC")
 
 	return tx
 }

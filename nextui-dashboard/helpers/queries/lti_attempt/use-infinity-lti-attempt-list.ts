@@ -21,6 +21,7 @@ export const useInfinityLtiAttemptList = (params?: Params) => {
       return transportWithAuth.rpc<Response>(CoreJsonRpcPath, {
         method: 'lti_attempt.list',
         params: {
+          ...params,
           limit: params?.limit ?? 100,
           offset: pageParam,
           statuses: params?.statuses || [],
@@ -35,8 +36,8 @@ export const useInfinityLtiAttemptList = (params?: Params) => {
     gcTime: 0,
     getNextPageParam: (response, pages) => {
       const totalCount = (response as any)?.totalCount || 0;
-      const count = pages.flatMap((p) => p?.model).length;
-      return totalCount && totalCount > count ? count : undefined;
+      const count = pages.flatMap((p) => p?.model ?? []).length;
+      return response?.model?.length && totalCount > count ? count : undefined;
     },
     initialPageParam: 0,
     retry: 3

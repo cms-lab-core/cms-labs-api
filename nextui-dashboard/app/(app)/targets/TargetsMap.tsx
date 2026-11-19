@@ -93,7 +93,7 @@ function TargetMapInner({ filter, data, isLoading }: TargetMapProps) {
   const activeTargetIds = useMemo(() => {
     const filtered = filterTargets(data?.model?.targets || [], filter);
     return new Set(filtered.map((t) => t.taget.id));
-  }, [isLoading, filter]);
+  }, [data, filter]);
 
   const rawData = useMemo(() => {
     if (!data?.model?.targets) return { rawNodes: [], rawEdges: [] };
@@ -167,7 +167,7 @@ function TargetMapInner({ filter, data, isLoading }: TargetMapProps) {
     });
 
     return { rawNodes: nodes, rawEdges: edges };
-  }, [isLoading, activeTargetIds]);
+  }, [data, activeTargetIds]);
 
   const { connectedNodeIds, connectedEdgeIds } = useMemo(() => {
     if (!selectedNodeId || rawData.rawEdges.length === 0) {

@@ -42,7 +42,7 @@ export const RolesChip = ({ roles, maxRoles }: RolesChipProps) => {
   const queryRoles = useQueryRoleList({});
   if (queryRoles.isLoading) return <Loading size='sm' />;
 
-  const filteredRoles = queryRoles.data?.model.filter((role) => (roles || []).includes(role.id || 0));
+  const filteredRoles = queryRoles.data?.model?.filter((role) => (roles || []).includes(role.id || 0));
 
   if (!filteredRoles?.length) return null;
 

@@ -41,7 +41,11 @@ export const RolesList = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const queryRoles = useQueryRoleList({});
   const rows = queryRoles.data?.model || [];
-  const totalCount = queryRoles.data?.totalCount || 0;
+  const search = searchTerm.trim().toLowerCase();
+  const filteredRows = rows.filter((row) =>
+    [row.name, row.code, String(row.id ?? '')].some((value) => value?.toLowerCase().includes(search))
+  );
+  const totalCount = filteredRows.length;
   return (
     <CrumbsLayout name={`${RoleTable.Title} (${totalCount})`} crumbs={crumbs}>
       <>
@@ -54,12 +58,7 @@ export const RolesList = () => {
           </div>
         </div>
         <div className='max-w-[95rem] mx-auto w-full'>
-          <RolesTableWrapper
-            rows={rows.filter((row) =>
-              searchTerm.length < 3 ? true : row.name?.includes(searchTerm) || row.code?.includes(searchTerm)
-            )}
-            isLoading={queryRoles.isLoading}
-          />
+          <RolesTableWrapper rows={filteredRows} isLoading={queryRoles.isLoading} />
         </div>
       </>
     </CrumbsLayout>

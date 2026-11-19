@@ -57,6 +57,7 @@ export const LTIAttemptsListPage = () => {
 
   const [selectedAttempts, setSelectedAttempts] = useState<Set<string>>(new Set());
   const [bulkTerminating, setBulkTerminating] = useState(false);
+  const [statusOpen, setStatusOpen] = useState(false);
 
   const selectedStatuses = queryParams.statuses;
   const selectedUserId = queryParams.userId;
@@ -174,17 +175,34 @@ export const LTIAttemptsListPage = () => {
           </div>
         ) : (
           <div className='flex items-center gap-3 flex-wrap'>
-            <Select
-              label={LTIAttemptsTable.FilterStatus || 'Status'}
-              selectionMode='multiple'
-              selectedKeys={new Set(selectedStatuses)}
-              onSelectionChange={(keys) => updateParam('statuses', Array.from(keys) as string[])}
+            <div
               className='w-48'
+              onKeyDownCapture={(event) => {
+                if (event.key === 'Escape') {
+                  event.stopPropagation();
+                  setStatusOpen(false);
+                }
+              }}
             >
-              {FieldStatusValues.map((status) => (
-                <SelectItem key={status.key}>{status.value}</SelectItem>
-              ))}
-            </Select>
+              <Select
+                label={LTIAttemptsTable.FilterStatus || 'Status'}
+                selectionMode='multiple'
+                isOpen={statusOpen}
+                onOpenChange={setStatusOpen}
+                selectedKeys={new Set(selectedStatuses)}
+                onSelectionChange={(keys) =>
+                  updateParam(
+                    'statuses',
+                    keys === 'all' ? FieldStatusValues.map((status) => status.key) : Array.from(keys, String)
+                  )
+                }
+                className='w-48'
+              >
+                {FieldStatusValues.map((status) => (
+                  <SelectItem key={status.key}>{status.value}</SelectItem>
+                ))}
+              </Select>
+            </div>
             <AutoCompleteFull
               label={LTIAttemptsTable.FilterUser || 'User'}
               placeholder={LTIAttemptsTable.FilterUser || 'Select user'}
@@ -201,6 +219,18 @@ export const LTIAttemptsListPage = () => {
               fetchData={useQueryServerAutoComplete}
               className='w-64'
             />
+            {(selectedStatuses.length > 0 || selectedUserId || selectedServerId || selectedServerClientId) && (
+              <Button
+                variant='light'
+                onPress={() => {
+                  const params = new URLSearchParams(searchParams);
+                  ['statuses', 'userId', 'serverId', 'serverClientId'].forEach((key) => params.delete(key));
+                  setSearchParams(params);
+                }}
+              >
+                {locale.Sidebar.Clear}
+              </Button>
+            )}
           </div>
         )}
       </div>

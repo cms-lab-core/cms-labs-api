@@ -36,7 +36,7 @@ export const Accounts = () => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const response = useInfinityUserList({ limit: 100, search: searchTerm });
   const users =
-    response?.data?.pages.flatMap((p) => p?.model.map((item) => MapUserItem(item.model, item.roles)) ?? []) || [];
+    response?.data?.pages.flatMap((p) => p?.model?.map((item) => MapUserItem(item.model, item.roles)) ?? []) || [];
   const totalCount = response.data?.pages[0]?.totalCount ?? 0;
   return (
     <CrumbsLayout name={`${UsersTable.Title} (${totalCount})`} crumbs={crumbs}>

@@ -53,7 +53,7 @@ export const TargetsList = () => {
       tags.push({ key: tag, value: tag });
     });
     return tags;
-  }, [isLoading]);
+  }, [data]);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [mineFilter, setMineFilter] = useState<FilterSelectorItem[]>([]);
   const [layers, setLayers] = useState<FilterSelectorItem[]>([]);

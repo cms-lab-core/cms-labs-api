@@ -17,7 +17,13 @@ export const AutoCompleteFull = (props: AutoCompleteFullProps) => {
   const [inputChangeValue, onInputChange] = useState('');
   const debounceChangeValue = useDebounce(inputChangeValue, 300);
   const responseSearch = props?.fetchData?.(debounceChangeValue, props as InputProps);
-  const items = [...(props.defaultItems ?? []), ...(responseSearch?.items ?? [])];
+  const search = inputChangeValue.trim().toLowerCase();
+  const defaultItems = (props.defaultItems ?? []).filter(
+    (item) => String(item.key) === String(props.value) || item.value.toLowerCase().includes(search)
+  );
+  const items = Array.from(
+    new Map([...defaultItems, ...(responseSearch?.items ?? [])].map((item) => [String(item.key), item])).values()
+  );
 
   return (
     <Autocomplete

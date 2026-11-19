@@ -53,7 +53,7 @@ func (u *UserListUC) Execute(dto UserListInputDTO) (UserListOutputDTO, error) {
 	if err != nil {
 		return UserListOutputDTO{}, err
 	}
-	result := UserListOutputDTO{TotalCount: count}
+	result := UserListOutputDTO{Model: make([]UserListModel, 0, len(entities)), TotalCount: count}
 	for _, entity := range entities {
 		item := UserListModel{
 			Model: entity,

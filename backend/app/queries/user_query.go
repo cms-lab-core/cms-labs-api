@@ -8,6 +8,7 @@ import (
 
 	"github.com/cms-lab-core/cms-labs-api/backend/app/models/types"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/listfilter"
 	"github.com/rs/zerolog"
 
 	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
@@ -109,19 +110,13 @@ func (q *UserQueries) List(
 	offset int,
 ) ([]models.UserListItem, int64, error) {
 	var entities []models.UserListItem
-	result := q.listFilter(
-		search,
-		ids,
-		q.DB.Limit(MaxLimitCount).Offset(0),
-	).Find(&entities)
-	count := result.RowsAffected
-	q.Logger.Debug().Msg(fmt.Sprintf("UserQueries list: count %+v", count))
-	result = q.listFilter(
-		search,
-		ids,
-		q.DB.Limit(limit).Offset(offset),
-	).Find(&entities)
-	q.Logger.Debug().Msg(fmt.Sprintf("UserQueries list: entities %+v", entities))
+	query := q.listFilter(search, ids, q.DB)
+	var count int64
+	if err := query.Session(&gorm.Session{}).Count(&count).Error; err != nil {
+		return nil, 0, err
+	}
+	limit, offset = listfilter.Pagination(limit, offset)
+	result := query.Limit(limit).Offset(offset).Find(&entities)
 	return entities, count, result.Error
 }
 
@@ -130,13 +125,9 @@ func (q *UserQueries) listFilter(search string, ids []uint, tx *gorm.DB) *gorm.D
 	// Keep pagination deterministic when multiple users are created within the
 	// same database timestamp precision window.
 	tx = tx.Order(`created_at desc`).Order(`id desc`)
-	if search != "" {
-		tx = tx.Or("email LIKE ?", fmt.Sprintf("%%%s%%", search))
-		tx = tx.Or("name LIKE ?", fmt.Sprintf("%%%s%%", search))
-		tx = tx.Or("id = ?", search)
-	}
+	tx = listfilter.Search(tx, search, "id", "email", "name")
 	if len(ids) > 0 {
-		tx = tx.Or("id IN ?", ids)
+		tx = tx.Where("id IN ?", ids)
 	}
 	return tx
 }

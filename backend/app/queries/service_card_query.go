@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/cms-lab-core/cms-labs-api/backend/pkg/listfilter"
 	"github.com/rs/zerolog"
 
 	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
@@ -70,6 +71,7 @@ func (q *ServiceCardQueries) List(
 	if err := query.Session(&gorm.Session{}).Count(&count).Error; err != nil {
 		return nil, 0, err
 	}
+	limit, offset = listfilter.Pagination(limit, offset)
 	result := query.Limit(limit).Offset(offset).Find(&entities)
 	return entities, count, result.Error
 }
@@ -77,11 +79,7 @@ func (q *ServiceCardQueries) List(
 func (q *ServiceCardQueries) listFilter(search string, tx *gorm.DB) *gorm.DB {
 	tx = tx.Model(&models.ServiceCard{})
 	tx = tx.Order("`order` desc").Order(`created_at desc`)
-	if search == "" {
-		return tx
-	}
-	tx = tx.Or("id = ?", search)
-	return tx
+	return listfilter.Search(tx.Order("id DESC"), search, "id", "name", "description", "url")
 }
 
 func (q *ServiceCardQueries) Delete(id uint) error {
