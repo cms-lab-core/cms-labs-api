@@ -1,6 +1,7 @@
 package tasks
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"strings"
@@ -44,13 +45,13 @@ func TestGradeDeliverySerializesAcrossDatabaseConnections(t *testing.T) {
 		return db
 	}
 	first, second, third := open(), open(), open()
-	if err := first.AutoMigrate(&models.LTIAttempt{}); err != nil {
+	if err := first.AutoMigrate(&models.LTIAttempt{}, &models.Server{}); err != nil {
 		t.Fatal(err)
 	}
-	t.Cleanup(func() { first.Migrator().DropTable(&models.LTIAttempt{}) })
+	t.Cleanup(func() { first.Migrator().DropTable(&models.LTIAttempt{}, &models.Server{}) })
 	serverID := uint(7)
 	at := time.Now().UTC().Add(-time.Minute)
-	grade := datatypes.NewJSONType(models.LTIAttemptResult{CheckID: "old", CheckedAt: at, MaxScore: 10, CurrentScore: 1, ResultDisplay: "old"})
+	grade := datatypes.NewJSONType(models.LTIAttemptResult{Source: models.GradeSourceClabgate, CheckID: "old", CheckedAt: at, MaxScore: 10, CurrentScore: 1, ResultDisplay: "old"})
 	attempt := models.LTIAttempt{LTIAttemptBase: models.LTIAttemptBase{AttemptID: "concurrent", Status: "active", ServerID: &serverID, Result: &grade}}
 	if err := first.Create(&attempt).Error; err != nil {
 		t.Fatal(err)
@@ -81,7 +82,7 @@ func TestGradeDeliverySerializesAcrossDatabaseConnections(t *testing.T) {
 	case <-time.After(3 * time.Second):
 		t.Fatal("parallel sender blocked instead of leaving grade queued")
 	}
-	newer := datatypes.NewJSONType(models.LTIAttemptResult{CheckID: "new", CheckedAt: at.Add(time.Second), MaxScore: 10, CurrentScore: 8, ResultDisplay: "latest"})
+	newer := datatypes.NewJSONType(models.LTIAttemptResult{Source: models.GradeSourceClabgate, CheckID: "new", CheckedAt: at.Add(time.Second), MaxScore: 10, CurrentScore: 8, ResultDisplay: "latest"})
 	written := make(chan error, 1)
 	go func() {
 		_, _, err := (&queries.LTIAttemptQueries{DB: second}).ApplyExternalUpdate("concurrent", 7, "completed", &newer)
@@ -130,4 +131,21 @@ func TestGradeDeliverySerializesAcrossDatabaseConnections(t *testing.T) {
 	if err != nil || stored.SynchronizedAt == nil || stored.Result.Data().CheckID != "new" {
 		t.Fatal("final grade did not survive", err)
 	}
+	for _, server := range []models.Server{{Base: models.Base{ID: 7}, ServerBase: models.ServerBase{Type: models.ServerTypeKubernetes}}, {Base: models.Base{ID: 8}, ServerBase: models.ServerBase{Type: models.ServerTypePnet}}} {
+		if err := first.Create(&server).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	for _, id := range []uint{7, 8} {
+		legacy := datatypes.NewJSONType(models.LTIAttemptResult{CheckID: "legacy", CheckedAt: at, MaxScore: 10, CurrentScore: 0, ResultDisplay: "ready"})
+		row := models.LTIAttempt{LTIAttemptBase: models.LTIAttemptBase{AttemptID: fmt.Sprint("legacy-", id), Status: "completed", ServerID: &id, Result: &legacy}}
+		if err := first.Create(&row).Error; err != nil {
+			t.Fatal(err)
+		}
+	}
+	pending, err := (&queries.LTIAttemptQueries{DB: first}).ListPendingSync()
+	if err != nil || len(pending) != 1 || pending[0].AttemptID != "legacy-7" {
+		t.Fatalf("wrong MySQL clabgate outbox: %v %v", pending, err)
+	}
+
 }

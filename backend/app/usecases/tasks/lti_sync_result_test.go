@@ -56,6 +56,9 @@ func TestGradeDeliveryRetriesAfterFailureAndRestart(t *testing.T) {
 				}
 			}
 
+			if err := db.Exec(`CREATE TABLE servers(id integer PRIMARY KEY,type text)`).Error; err != nil {
+				t.Fatal(err)
+			}
 			var mutex sync.Mutex
 			var sent []connector.Score
 			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -99,7 +102,7 @@ func TestGradeDeliveryRetriesAfterFailureAndRestart(t *testing.T) {
 			if err := db.Create(&launch).Error; err != nil {
 				t.Fatal(err)
 			}
-			grade := datatypes.NewJSONType(models.LTIAttemptResult{CheckID: "check", MaxScore: 10, CurrentScore: score, ResultDisplay: "ready"})
+			grade := datatypes.NewJSONType(models.LTIAttemptResult{Source: models.GradeSourceClabgate, CheckID: "check", MaxScore: 10, CurrentScore: score, ResultDisplay: "ready"})
 			attempt := models.LTIAttempt{LTIAttemptBase: models.LTIAttemptBase{AttemptID: attemptID, Status: "active", Result: &grade}}
 			if err := db.Create(&attempt).Error; err != nil {
 				t.Fatal(err)
@@ -115,38 +118,48 @@ func TestGradeDeliveryRetriesAfterFailureAndRestart(t *testing.T) {
 			newWorker := func() *LTISyncResultUC {
 				return &LTISyncResultUC{LTIAttemptQueries: &queries.LTIAttemptQueries{DB: db}, LTIConnectorAPI: api, Logger: &logger}
 			}
-			if err := newWorker().SyncGradeToLTI(attemptID); err == nil {
-				t.Fatal("503 incorrectly acknowledged")
-			}
-			stored, err := newWorker().LTIAttemptQueries.GetByAttemptID(attemptID)
-			if err != nil || stored.SynchronizedAt != nil {
-				t.Fatal("failed delivery removed pending state", err)
-			}
 			ctx, cancel := context.WithCancel(context.Background())
 			done := make(chan struct{})
 			go func() { defer close(done); newWorker().Run(ctx) }()
-			deadline := time.After(3 * time.Second)
+			WakeGradeSync(attemptID)
+			deadline := time.Now().Add(3 * time.Second)
 			for {
-				stored, err = newWorker().LTIAttemptQueries.GetByAttemptID(attemptID)
-				if err != nil {
-					cancel()
-					t.Fatal(err)
-				}
-				if stored.SynchronizedAt != nil {
+				mutex.Lock()
+				count := len(sent)
+				mutex.Unlock()
+				if count == 1 {
 					break
 				}
-				select {
-				case <-deadline:
+				if time.Now().After(deadline) {
 					cancel()
-					t.Fatal("restarted worker did not recover persisted grade")
-				case <-time.After(10 * time.Millisecond):
+					t.Fatal("grade event was not delivered immediately")
 				}
+				time.Sleep(5 * time.Millisecond)
 			}
 			cancel()
-			select {
-			case <-done:
-			case <-time.After(time.Second):
-				t.Fatal("worker did not stop")
+			<-done
+			stored, err := newWorker().LTIAttemptQueries.GetByAttemptID(attemptID)
+			if err != nil || stored.SynchronizedAt != nil {
+				t.Fatal("failed event delivery removed pending state", err)
+			}
+			idle, stop := context.WithCancel(context.Background())
+			stopped := make(chan struct{})
+			go func() { defer close(stopped); newWorker().Run(idle) }()
+			time.Sleep(100 * time.Millisecond)
+			stop()
+			<-stopped
+			mutex.Lock()
+			countBeforeCron := len(sent)
+			mutex.Unlock()
+			if countBeforeCron != 1 {
+				t.Fatal("backend scanned persisted grades on startup")
+			}
+			if err := newWorker().Execute(); err != nil {
+				t.Fatal(err)
+			}
+			stored, err = newWorker().LTIAttemptQueries.GetByAttemptID(attemptID)
+			if err != nil || stored.SynchronizedAt == nil {
+				t.Fatal("cron did not deliver persisted grade", err)
 			}
 			mutex.Lock()
 			got := append([]connector.Score(nil), sent...)

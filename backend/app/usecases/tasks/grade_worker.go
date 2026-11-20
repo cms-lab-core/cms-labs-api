@@ -3,7 +3,6 @@ package tasks
 import (
 	"context"
 	"sync"
-	"time"
 )
 
 var gradeSyncWake = make(chan string, 1024)
@@ -24,19 +23,6 @@ func WakeGradeSync(attemptID string) {
 }
 
 func (u *LTISyncResultUC) Run(ctx context.Context) {
-	ticker := time.NewTicker(30 * time.Second)
-	defer ticker.Stop()
-	scan := func() {
-		attempts, err := u.LTIAttemptQueries.ListPendingSync()
-		if err != nil {
-			u.Logger.Error().Err(err).Msg("read grade outbox")
-			return
-		}
-		for _, attempt := range attempts {
-			WakeGradeSync(attempt.AttemptID)
-		}
-	}
-	scan()
 	for {
 		select {
 		case <-ctx.Done():
@@ -48,8 +34,6 @@ func (u *LTISyncResultUC) Run(ctx context.Context) {
 			if err := u.SyncGradeToLTI(attemptID); err != nil {
 				u.Logger.Error().Err(err).Str("attempt_id", attemptID).Msg("grade remains queued for retry")
 			}
-		case <-ticker.C:
-			scan()
 		}
 	}
 }

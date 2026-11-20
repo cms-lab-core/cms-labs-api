@@ -17,7 +17,12 @@ const (
 	AttemptStatusCompleted = "completed"
 )
 
+const GradeSourceClabgate = "clabgate"
+const GradeSourceManual = "manual"
+const GradeSourceExternal = "external"
+
 type LTIAttemptResult struct {
+	Source    string    `json:"source,omitempty"`
 	CheckedAt time.Time `json:"checked_at,omitempty"`
 	// Числовые оценки
 	MaxScore     float64 `json:"max_score"`     // Максимально возможный балл (например, 10 или 100)
@@ -29,6 +34,10 @@ type LTIAttemptResult struct {
 	Report        string           `json:"report,omitempty"`
 	Logs          string           `json:"logs,omitempty"`
 	Tasks         []LTICheckerTask `json:"tasks,omitempty"`
+}
+
+func (r LTIAttemptResult) HasGrade() bool {
+	return r.MaxScore > 0 && r.CurrentScore >= 0 && r.CurrentScore <= r.MaxScore && r.ResultDisplay != "" && r.CheckID != ""
 }
 
 // LTICheckerLog is a structured, student-visible message produced by one

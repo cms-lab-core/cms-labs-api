@@ -44,7 +44,9 @@ func (q *LTIAttemptQueries) ApplyExternalUpdate(attemptID string, serverID uint,
 		if len(updates) == 0 {
 			return nil
 		}
-		updates["synchronized_at"] = nil
+		if _, resultChanged := updates["result"]; resultChanged {
+			updates["synchronized_at"] = nil
+		}
 		updates["updated_at"] = time.Now().UTC()
 		if err := tx.Model(&models.LTIAttempt{}).Where("id = ?", attempt.ID).Updates(updates).Error; err != nil {
 			return err
@@ -56,12 +58,31 @@ func (q *LTIAttemptQueries) ApplyExternalUpdate(attemptID string, serverID uint,
 }
 
 func (q *LTIAttemptQueries) EditFields(id uint, serverID *uint, status string, result *models.LTIAttemptResult) error {
-	updates := map[string]interface{}{"status": status, "synchronized_at": nil, "updated_at": time.Now().UTC()}
+	updates := map[string]interface{}{"status": status, "updated_at": time.Now().UTC()}
 	if serverID != nil {
 		updates["server_id"] = *serverID
 	}
 	if result != nil {
-		updates["result"] = datatypes.NewJSONType(*result)
+		manual := *result
+		manual.Source = models.GradeSourceManual
+		updates["result"] = datatypes.NewJSONType(manual)
+		updates["synchronized_at"] = nil
 	}
 	return q.DB.Model(&models.LTIAttempt{}).Where("id = ?", id).Updates(updates).Error
+}
+
+func (q *LTIAttemptQueries) IsGradeFromClabgate(attempt models.LTIAttempt) (bool, error) {
+	if attempt.Result == nil || !attempt.Result.Data().HasGrade() {
+		return false, nil
+	}
+	result := attempt.Result.Data()
+	if result.Source == models.GradeSourceClabgate {
+		return true, nil
+	}
+	if result.Source != "" || result.CheckedAt.IsZero() || attempt.ServerID == nil {
+		return false, nil
+	}
+	var count int64
+	err := q.DB.Model(&models.Server{}).Where("id = ? AND type = ?", *attempt.ServerID, models.ServerTypeKubernetes).Count(&count).Error
+	return count == 1, err
 }

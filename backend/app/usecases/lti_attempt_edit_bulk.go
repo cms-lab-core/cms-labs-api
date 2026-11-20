@@ -63,14 +63,24 @@ func (u *LTIAttemptEditBulkUC) Execute(dto LTIAttemptEditBulkInputDTO) (LTIAttem
 	attemptIds := make([]string, 0, len(dto.Models))
 	processed := 0
 	for _, attemptDTO := range dto.Models {
-		accepted, changed, err := u.LTIAttemptQueries.ApplyExternalUpdate(attemptDTO.AttemptID, serverEntity.ID, attemptDTO.Status, attemptDTO.Result)
+		gradeResult := attemptDTO.Result
+		if gradeResult != nil {
+			grade := gradeResult.Data()
+			grade.Source = models.GradeSourceExternal
+			if serverEntity.Type == models.ServerTypeKubernetes && grade.CheckID != "" && !grade.CheckedAt.IsZero() {
+				grade.Source = models.GradeSourceClabgate
+			}
+			stored := datatypes.NewJSONType(grade)
+			gradeResult = &stored
+		}
+		accepted, _, err := u.LTIAttemptQueries.ApplyExternalUpdate(attemptDTO.AttemptID, serverEntity.ID, attemptDTO.Status, gradeResult)
 		if err != nil {
 			return LTIAttemptEditBulkOutputDTO{}, err
 		}
 		if !accepted {
 			continue
 		}
-		if changed || attemptDTO.Result != nil {
+		if gradeResult != nil && gradeResult.Data().Source == models.GradeSourceClabgate && gradeResult.Data().HasGrade() {
 			attemptIds = append(attemptIds, attemptDTO.AttemptID)
 		}
 		processed++

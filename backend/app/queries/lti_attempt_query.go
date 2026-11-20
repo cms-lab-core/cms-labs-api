@@ -12,6 +12,7 @@ import (
 
 	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
 	"github.com/cms-lab-core/cms-labs-api/shared/jsonrpc"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 )
 
@@ -65,8 +66,23 @@ func (q *LTIAttemptQueries) ListPendingSync() ([]models.LTIAttempt, error) {
 	result := q.DB.Where(
 		"synchronized_at IS NULL AND result IS NOT NULL",
 	)
+	sourceMissing := q.DB.Not(datatypes.JSONQuery("result").HasKey("source")).Or(datatypes.JSONQuery("result").Equals("", "source"))
+	legacy := q.DB.Where(sourceMissing).
+		Where(datatypes.JSONQuery("result").HasKey("check_id")).Not(datatypes.JSONQuery("result").Equals("", "check_id")).
+		Where(datatypes.JSONQuery("result").HasKey("checked_at")).Not(datatypes.JSONQuery("result").Equals(time.Time{}.Format(time.RFC3339Nano), "checked_at")).
+		Where("server_id IN (?)", q.DB.Model(&models.Server{}).Select("id").Where("type = ?", models.ServerTypeKubernetes))
+	result = result.Where(q.DB.Where(datatypes.JSONQuery("result").Equals(models.GradeSourceClabgate, "source")).Or(legacy))
 	result = result.Limit(MaxLimitCount).Offset(0).Order("updated_at asc").Order("id asc").Find(&entities)
-	return entities, result.Error
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	valid := entities[:0]
+	for _, attempt := range entities {
+		if attempt.Result != nil && attempt.Result.Data().HasGrade() {
+			valid = append(valid, attempt)
+		}
+	}
+	return valid, nil
 }
 
 func (q *LTIAttemptQueries) Upsert(entity *models.LTIAttempt) error {

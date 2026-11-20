@@ -71,6 +71,13 @@ func (u *LTISyncResultUC) syncGrade(attemptID string, send func(*gorm.DB, models
 		if attempt.Result == nil || attempt.SynchronizedAt != nil {
 			return nil
 		}
+		eligible, err := (&queries.LTIAttemptQueries{DB: tx}).IsGradeFromClabgate(attempt)
+		if err != nil {
+			return err
+		}
+		if !eligible {
+			return nil
+		}
 		result := attempt.Result.Data()
 		if !(result.CurrentScore >= 0 && result.CurrentScore <= result.MaxScore && result.MaxScore > 0 && result.ResultDisplay != "") {
 			return errors.New("invalid grade remains pending")

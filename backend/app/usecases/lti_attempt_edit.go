@@ -3,7 +3,6 @@ package usecases
 import (
 	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
 	"github.com/cms-lab-core/cms-labs-api/backend/app/queries"
-	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases/tasks"
 )
 
 type LTIAttemptEditUC struct {
@@ -44,6 +43,5 @@ func (u *LTIAttemptEditUC) Execute(dto LTIAttemptEditInputDTO) (LTIAttemptEditOu
 	if err != nil {
 		return LTIAttemptEditOutputDTO{ID: entity.ID}, err
 	}
-	tasks.WakeGradeSync(entity.AttemptID)
 	return LTIAttemptEditOutputDTO{ID: entity.ID}, err
 }

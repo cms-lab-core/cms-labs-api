@@ -23,10 +23,13 @@ func TestGradeUpdatesAreOrderedIdempotentAndIndependentOfStatus(t *testing.T) {
 	if err := db.Exec(`CREATE TABLE lti_attempts(id integer PRIMARY KEY,created_at datetime,updated_at datetime,attempt_id text,status text,result text,user_id integer,server_id integer,lti_routing_id integer,synchronized_at datetime,room_id integer)`).Error; err != nil {
 		t.Fatal(err)
 	}
+	if err := db.Exec(`CREATE TABLE servers(id integer PRIMARY KEY,type text)`).Error; err != nil {
+		t.Fatal(err)
+	}
 	serverID := uint(7)
 	base := time.Now().UTC().Add(-time.Hour)
 	makeGrade := func(id string, score float64, at time.Time) *datatypes.JSONType[models.LTIAttemptResult] {
-		g := datatypes.NewJSONType(models.LTIAttemptResult{CheckID: id, CheckedAt: at, MaxScore: 10, CurrentScore: score, ResultDisplay: id})
+		g := datatypes.NewJSONType(models.LTIAttemptResult{Source: models.GradeSourceClabgate, CheckID: id, CheckedAt: at, MaxScore: 10, CurrentScore: score, ResultDisplay: id})
 		return &g
 	}
 	attempt := models.LTIAttempt{LTIAttemptBase: models.LTIAttemptBase{AttemptID: "attempt", ServerID: &serverID, Status: "active", Result: makeGrade("old", 1, base)}}

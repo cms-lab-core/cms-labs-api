@@ -84,7 +84,7 @@ cronJobs:
             memory: "250Mi"
             cpu: "200m"
   grade-sync:
-    schedule: "* * * * *"
+    schedule: "*/5 * * * *"
     singleOnly: true
     commandDurationAlert: 300
     commandMaxDuration: 600
