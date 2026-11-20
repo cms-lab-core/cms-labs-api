@@ -1,29 +1,30 @@
-// Package http_debug общие компоненты для Fiber транспортного уровня
 package http_debug
 
 import (
-	"fmt"
 	"net/http"
-	"net/http/httputil"
+	"time"
 
 	"github.com/rs/zerolog"
 )
 
 type LoggingTransport struct {
 	*zerolog.Logger
+	Transport http.RoundTripper
 }
 
 func (s *LoggingTransport) RoundTrip(r *http.Request) (*http.Response, error) {
-	bytes, _ := httputil.DumpRequestOut(r, true)
-
-	resp, err := http.DefaultTransport.RoundTrip(r)
-	// err is returned after dumping the response
-
-	respBytes, _ := httputil.DumpResponse(resp, true)
-	bytes = append(bytes, respBytes...)
-
-	s.Logger.Debug().Msg(fmt.Sprintf("%s\n", bytes))
-	fmt.Printf("%s\n", bytes)
-
-	return resp, err
+	transport := s.Transport
+	if transport == nil {
+		transport = http.DefaultTransport
+	}
+	started := time.Now()
+	response, err := transport.RoundTrip(r)
+	if s.Logger != nil {
+		status := 0
+		if response != nil {
+			status = response.StatusCode
+		}
+		s.Logger.Debug().Str("method", r.Method).Str("host", r.URL.Host).Int("status_code", status).Dur("duration", time.Since(started)).Err(err).Msg("HTTP request completed")
+	}
+	return response, err
 }
