@@ -95,7 +95,7 @@ func TestPendingCheckerResultsIsolatesBrokenJob(t *testing.T) {
 
 func TestCheckerJobRetainedUntilResultAcknowledged(t *testing.T) {
 	ctx := context.Background()
-	client := kubernetesfake.NewSimpleClientset()
+	client := kubernetesfake.NewSimpleClientset(&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "lab-test"}})
 	logger := zerolog.Nop()
 	admin := NewKubernetesAdminWithClients(client, nil, nil, &logger)
 	_, err := admin.RunChecker(ctx, RunCheckerParams{

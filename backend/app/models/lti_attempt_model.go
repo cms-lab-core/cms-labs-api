@@ -18,6 +18,7 @@ const (
 )
 
 type LTIAttemptResult struct {
+	CheckedAt time.Time `json:"checked_at,omitempty"`
 	// Числовые оценки
 	MaxScore     float64 `json:"max_score"`     // Максимально возможный балл (например, 10 или 100)
 	CurrentScore float64 `json:"current_score"` // Текущий полученный балл

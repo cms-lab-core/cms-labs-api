@@ -16,7 +16,10 @@ import (
 
 func TestSharedCheckerNamespaceKeepsSessionsSeparate(t *testing.T) {
 	ctx := context.Background()
-	client := fake.NewSimpleClientset()
+	client := fake.NewSimpleClientset(
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "lab-one"}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "lab-two"}},
+	)
 	generated := 0
 	client.PrependReactor("create", "jobs", func(action ktesting.Action) (bool, runtime.Object, error) {
 		job := action.(ktesting.CreateAction).GetObject().(*batchv1.Job)
@@ -93,7 +96,7 @@ func TestDeleteSessionCleansOnlyItsSharedCheckerJobs(t *testing.T) {
 	admin := NewKubernetesAdminWithClients(client, nil, nil, &logger)
 	admin.checkerNamespace = "cms-labs"
 	for _, name := range []string{"session", "another"} {
-		_, err := client.BatchV1().Jobs("cms-labs").Create(context.Background(), &batchv1.Job{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{SessionComponentLabel: SessionComponentChecker, CheckerTargetNamespaceLabel: "lab-" + name, SessionIDLabel: name, SessionOwnerLabel: "42"}}}, metav1.CreateOptions{})
+		_, err := client.BatchV1().Jobs("cms-labs").Create(context.Background(), &batchv1.Job{ObjectMeta: metav1.ObjectMeta{Name: name, Labels: map[string]string{SessionComponentLabel: SessionComponentChecker, CheckerTargetNamespaceLabel: "lab-" + name, SessionIDLabel: name, SessionOwnerLabel: "42"}}, Status: batchv1.JobStatus{Failed: 1}}, metav1.CreateOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}

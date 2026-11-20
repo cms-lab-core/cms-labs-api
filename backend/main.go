@@ -2,6 +2,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 
@@ -57,6 +58,7 @@ func main() {
 		return
 	}
 
+	go startup.LTISyncResultUC.Run(context.Background())
 	// Define a new Fiber app with config.
 	app := fiber.New(config)
 

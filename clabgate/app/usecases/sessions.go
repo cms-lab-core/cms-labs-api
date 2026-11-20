@@ -218,6 +218,11 @@ func (u *SessionsUC) Get(ctx context.Context, dto SessionGetInputDTO) (SessionOu
 	if !isOperator(u.user) && record.OwnerID != u.user.Sub {
 		return SessionOutputDTO{}, jsonrpc.NewRpcError("session_forbidden", "session belongs to another user")
 	}
+	if record.Checker != nil && !record.CheckerRunning {
+		if _, err := u.KubernetesAdminQuery.CaptureCheckerResults(ctx, record.Namespace); err != nil {
+			u.Logger.Error().Err(err).Str("attempt_id", record.AttemptID).Msg("persist ready checker result")
+		}
+	}
 	return SessionOutputDTO{Session: record}, nil
 }
 
@@ -247,12 +252,20 @@ func (u *SessionsUC) Stop(ctx context.Context, dto SessionStopInputDTO) (Session
 	if !isOperator(u.user) && record.OwnerID != u.user.Sub {
 		return SessionStopOutputDTO{}, jsonrpc.NewRpcError("session_forbidden", "session belongs to another user")
 	}
+	if _, err := u.KubernetesAdminQuery.CaptureCheckerResults(ctx, record.Namespace); err != nil {
+		return SessionStopOutputDTO{}, jsonrpc.NewRpcError("session_stop_failed", fmt.Sprintf("persist checker result: %v", err))
+	}
 	count, err := u.CMSClient.UpdateAttempts([]cms_client.UpdateAttemptParams{{AttemptID: record.AttemptID, Status: "terminating"}})
 	if err != nil || count != 1 {
 		return SessionStopOutputDTO{}, jsonrpc.NewRpcError("session_stop_failed", "CMS did not accept the terminating state")
 	}
-	_ = u.KubernetesAdminQuery.MarkSessionPhase(ctx, record.Namespace, queries.SessionPhaseStopping)
+	if err := u.KubernetesAdminQuery.MarkSessionPhase(ctx, record.Namespace, queries.SessionPhaseStopping); err != nil {
+		return SessionStopOutputDTO{}, err
+	}
 	if err := u.KubernetesAdminQuery.DeleteSession(ctx, dto.SessionID, u.user.Sub, isOperator(u.user)); err != nil {
+		if errors.Is(err, queries.ErrCheckerRunning) {
+			return SessionStopOutputDTO{Stopped: true}, nil
+		}
 		return SessionStopOutputDTO{}, jsonrpc.NewRpcError("session_stop_failed", fmt.Sprintf("stop session: %v", err))
 	}
 	return SessionStopOutputDTO{Stopped: true}, nil

@@ -4,12 +4,10 @@ import (
 	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
 	"github.com/cms-lab-core/cms-labs-api/backend/app/queries"
 	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases/tasks"
-	"gorm.io/datatypes"
 )
 
 type LTIAttemptEditUC struct {
 	LTIAttemptQueries *queries.LTIAttemptQueries
-	LTISyncResultUC   *tasks.LTISyncResultUC
 }
 
 type LTIAttemptEditInputDTO struct {
@@ -42,24 +40,10 @@ func (u *LTIAttemptEditUC) Execute(dto LTIAttemptEditInputDTO) (LTIAttemptEditOu
 	if err != nil {
 		return LTIAttemptEditOutputDTO{}, err
 	}
-	applyLTIAttemptEdit(&entity, dto)
-	entity.SynchronizedAt = nil
-	err = u.LTIAttemptQueries.Upsert(&entity)
+	err = u.LTIAttemptQueries.EditFields(dto.ID, dto.ServerID, dto.Status, dto.Result)
 	if err != nil {
 		return LTIAttemptEditOutputDTO{ID: entity.ID}, err
 	}
-	_ = u.LTISyncResultUC.SyncGradeToLTI(entity.AttemptID)
+	tasks.WakeGradeSync(entity.AttemptID)
 	return LTIAttemptEditOutputDTO{ID: entity.ID}, err
-}
-
-func applyLTIAttemptEdit(entity *models.LTIAttempt, dto LTIAttemptEditInputDTO) {
-	entity.ID = dto.ID
-	if dto.ServerID != nil {
-		entity.ServerID = dto.ServerID
-	}
-	entity.Status = dto.Status
-	if dto.Result != nil {
-		ltiResult := datatypes.NewJSONType(*dto.Result)
-		entity.Result = &ltiResult
-	}
 }

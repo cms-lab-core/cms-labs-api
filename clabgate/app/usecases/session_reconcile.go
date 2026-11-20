@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/cms-lab-core/cms-labs-api/clabgate/app/queries"
 	"github.com/cms-lab-core/cms-labs-api/clabgate/pkg/configs"
@@ -13,6 +14,7 @@ import (
 )
 
 type checkerGrade struct {
+	CheckedAt     time.Time     `json:"checked_at,omitempty"`
 	MaxScore      float64       `json:"max_score"`
 	CurrentScore  float64       `json:"current_score"`
 	ResultDisplay string        `json:"result_display"`
@@ -51,47 +53,14 @@ func decodeCheckerGrade(payload, checkID, logs string) (checkerGrade, error) {
 // Reconcile synchronizes the CMS attempt lifecycle with Kubernetes, which is the
 // source of truth for runtime sessions. It replaces the old JupyterHub idle checker.
 func (u *SessionsUC) Reconcile(ctx context.Context) (int, error) {
-	changes := 0
+	changes := u.deliverCheckerResults(ctx)
 	sessions, err := u.KubernetesAdminQuery.ListSessions(ctx, "", configs.AppConfig.Session.WorkspacePrefix)
 	if err != nil {
-		return 0, fmt.Errorf("list Kubernetes sessions: %w", err)
+		return changes, fmt.Errorf("list Kubernetes sessions: %w", err)
 	}
 	sessionsByAttempt := make(map[string]queries.SessionRecord, len(sessions))
 	for _, session := range sessions {
 		sessionsByAttempt[session.AttemptID] = session
-		results, resultErr := u.KubernetesAdminQuery.PendingCheckerResults(ctx, session.Namespace)
-		if resultErr != nil {
-			u.Logger.Error().Err(resultErr).Str("attempt_id", session.AttemptID).Msg("read checker results")
-		}
-		for _, result := range results {
-			if result.Error != nil {
-				u.Logger.Error().Err(result.Error).Str("job", result.JobName).Msg("read checker result")
-				continue
-			}
-			grade, decodeErr := decodeCheckerGrade(result.Payload, result.CheckID, result.Logs)
-			if decodeErr != nil {
-				u.Logger.Error().Err(decodeErr).Str("job", result.JobName).Msg("decode checker result")
-				continue
-			}
-			count, updateErr := u.CMSClient.UpdateAttempts([]cms_client.UpdateAttemptParams{{
-				AttemptID: result.AttemptID,
-				Status:    "active",
-				Result:    grade,
-			}})
-			if updateErr != nil {
-				u.Logger.Error().Err(updateErr).Str("job", result.JobName).Msg("publish checker result")
-				continue
-			}
-			if count != 1 {
-				u.Logger.Error().Str("job", result.JobName).Int("updated", count).Msg("CMS did not acknowledge checker result")
-				continue
-			}
-			if markErr := u.KubernetesAdminQuery.MarkCheckerResultSynced(ctx, result.Namespace, result.JobName); markErr != nil {
-				u.Logger.Error().Err(markErr).Str("job", result.JobName).Msg("mark checker result synced")
-				continue
-			}
-			changes++
-		}
 	}
 
 	attempts, err := u.CMSClient.ListAttempts(cms_client.ListAttemptsParams{
@@ -153,6 +122,10 @@ func (u *SessionsUC) Reconcile(ctx context.Context) (int, error) {
 			}
 		case "terminating":
 			if sessionExists {
+				if err := u.KubernetesAdminQuery.MarkSessionPhase(ctx, session.Namespace, queries.SessionPhaseStopping); err != nil {
+					u.Logger.Error().Err(err).Str("attempt_id", attempt.AttemptID).Msg("mark terminating session")
+					continue
+				}
 				if deleteErr := u.KubernetesAdminQuery.DeleteSession(ctx, attempt.AttemptID, "", true); deleteErr != nil {
 					u.Logger.Error().Err(deleteErr).Str("attempt_id", attempt.AttemptID).Msg("delete terminating session")
 				} else {
@@ -170,4 +143,43 @@ func (u *SessionsUC) Reconcile(ctx context.Context) (int, error) {
 		}
 	}
 	return changes, nil
+}
+
+func (u *SessionsUC) deliverCheckerResults(ctx context.Context) int {
+	if _, err := u.KubernetesAdminQuery.CaptureCheckerResults(ctx, ""); err != nil {
+		u.Logger.Error().Err(err).Msg("capture checker results")
+	}
+	results, err := u.KubernetesAdminQuery.QueuedCheckerResults(ctx)
+	if err != nil {
+		u.Logger.Error().Err(err).Msg("read checker outbox")
+		return 0
+	}
+	changes := 0
+	for _, result := range results {
+		if result.Error != nil {
+			u.Logger.Error().Err(result.Error).Str("entry", result.OutboxName).Msg("read queued grade")
+			continue
+		}
+		grade, err := decodeCheckerGrade(result.Payload, result.CheckID, result.Logs)
+		if err != nil {
+			u.Logger.Error().Err(err).Str("entry", result.OutboxName).Msg("decode queued grade")
+			continue
+		}
+		grade.CheckedAt = result.CreatedAt
+		count, err := u.CMSClient.UpdateAttempts([]cms_client.UpdateAttemptParams{{AttemptID: result.AttemptID, Result: grade}})
+		if err != nil {
+			u.Logger.Error().Err(err).Str("entry", result.OutboxName).Msg("publish queued grade")
+			break
+		}
+		if count != 1 {
+			u.Logger.Error().Int("updated", count).Str("entry", result.OutboxName).Msg("CMS did not acknowledge queued grade")
+			continue
+		}
+		if err := u.KubernetesAdminQuery.AcknowledgeCheckerResult(ctx, result); err != nil {
+			u.Logger.Error().Err(err).Str("entry", result.OutboxName).Msg("acknowledge queued grade")
+			continue
+		}
+		changes++
+	}
+	return changes
 }

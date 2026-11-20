@@ -16,7 +16,6 @@ import (
 type LTIAttemptEditBulkUC struct {
 	LTIAttemptQueries *queries.LTIAttemptQueries
 	ServerQueries     *queries.ServerQueries
-	LTISyncResultUC   *tasks.LTISyncResultUC
 	xServiceId        string
 }
 
@@ -64,39 +63,16 @@ func (u *LTIAttemptEditBulkUC) Execute(dto LTIAttemptEditBulkInputDTO) (LTIAttem
 	attemptIds := make([]string, 0, len(dto.Models))
 	processed := 0
 	for _, attemptDTO := range dto.Models {
-		attempt, err := u.LTIAttemptQueries.GetByAttemptID(attemptDTO.AttemptID)
+		accepted, changed, err := u.LTIAttemptQueries.ApplyExternalUpdate(attemptDTO.AttemptID, serverEntity.ID, attemptDTO.Status, attemptDTO.Result)
 		if err != nil {
-			log.Warn().Msg(fmt.Sprintf("LTIAttemptEditBulkUC: LTI attempt id %s not found", attemptDTO.AttemptID))
-			continue
-		}
-		if attempt.ServerID != nil && *attempt.ServerID != serverEntity.ID {
-			log.Warn().Msg(fmt.Sprintf(
-				"LTIAttemptEditBulkUC: LTI attempt id %s is not owned by service %s",
-				attemptDTO.AttemptID,
-				u.xServiceId,
-			))
-			continue
-		}
-		if attemptDTO.Result != nil && attemptDTO.Result.Data().CheckID != "" && attempt.Result != nil &&
-			attempt.Result.Data().CheckID == attemptDTO.Result.Data().CheckID {
-			processed++
-			continue
-		}
-		attempt.SetStatus(attemptDTO.Status)
-		if attemptDTO.Result != nil {
-			attempt.Result = attemptDTO.Result
-		}
-		attempt.SynchronizedAt = nil
-		err = u.LTIAttemptQueries.Upsert(&attempt)
-		if err != nil {
-			log.Warn().Msg(fmt.Sprintf(
-				"LTIAttemptEditBulkUC: LTI attempt id %s update not complete %+v",
-				attemptDTO.AttemptID,
-				err,
-			))
 			return LTIAttemptEditBulkOutputDTO{}, err
 		}
-		attemptIds = append(attemptIds, attemptDTO.AttemptID)
+		if !accepted {
+			continue
+		}
+		if changed || attemptDTO.Result != nil {
+			attemptIds = append(attemptIds, attemptDTO.AttemptID)
+		}
 		processed++
 	}
 	activeAttempts, _, _ := u.LTIAttemptQueries.List(
@@ -110,26 +86,18 @@ func (u *LTIAttemptEditBulkUC) Execute(dto LTIAttemptEditBulkInputDTO) (LTIAttem
 	log.Info().Msg(fmt.Sprintf("LTIAttemptEditBulkUC: Update %s last online status and count attempts/user %d", u.xServiceId, len(activeAttempts)))
 	err = u.ServerQueries.DB.Transaction(
 		func(tx *gorm.DB) error {
-			serverEntity, err := u.ServerQueries.GetByClientId(u.xServiceId)
-			if err != nil {
-				return err
-			}
 			now := time.Now().UTC()
 			serverEntity.LastOnlineStatus = &now
 			serverEntity.LastCountUsers = len(activeAttempts)
 			serverEntity.UpdatedAt = now
-			tx.Save(serverEntity)
-			return nil
+			return tx.Model(&models.Server{}).Where("id = ?", serverEntity.ID).Updates(map[string]interface{}{"last_online_status": now, "last_count_users": len(activeAttempts), "updated_at": now}).Error
 		},
 	)
 	if err != nil {
 		return LTIAttemptEditBulkOutputDTO{}, err
 	}
-	// Тут можно подумать над упрощением
-	for _, attemptId := range attemptIds {
-		_ = u.LTISyncResultUC.SyncGradeToLTI(
-			attemptId,
-		)
+	for _, attemptID := range attemptIds {
+		tasks.WakeGradeSync(attemptID)
 	}
 	return LTIAttemptEditBulkOutputDTO{Count: uint(processed)}, err
 }

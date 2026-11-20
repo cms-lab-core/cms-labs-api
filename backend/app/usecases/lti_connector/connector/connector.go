@@ -258,12 +258,12 @@ func sendRequest(req *http.Request, log *zerolog.Logger) (datastore.AccessToken,
 			response.StatusCode,
 		),
 	)
+	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
 		return datastore.AccessToken{}, fmt.Errorf("access token request got response status %s",
 			http.StatusText(response.StatusCode))
 	}
 
-	defer response.Body.Close()
 	var responseBody map[string]interface{}
 	err = json.NewDecoder(response.Body).Decode(&responseBody)
 	if err != nil {
@@ -353,6 +353,7 @@ func (c *Connector) makeServiceRequest(s ServiceRequest) (http.Header, io.ReadCl
 	}
 
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		response.Body.Close()
 		return nil, nil, fmt.Errorf("service request got response status %s", http.StatusText(response.StatusCode))
 	}
 

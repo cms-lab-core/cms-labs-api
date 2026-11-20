@@ -5,6 +5,7 @@ import (
 	datastore "github.com/cms-lab-core/cms-labs-api/backend/app/queries/lti_query"
 	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases/lti_connector/connector"
 	"github.com/rs/zerolog"
+	"gorm.io/gorm"
 )
 
 // LTIConnectorAPI упрощает взаимодействие с бекендом LTI протокола
@@ -39,4 +40,24 @@ func (c *LTIConnectorAPI) ConnectorByAttemptID(attemptId string) (*connector.Con
 		return nil, err
 	}
 	return conn, nil
+}
+
+func (c *LTIConnectorAPI) WithDB(db *gorm.DB) *LTIConnectorAPI {
+	copy := *c
+	provider := *c.AuthProviderQueries
+	provider.DB = db
+	launch := *c.LTILaunchDataQueries
+	launch.DB = db
+	config := *c.LTIProtocolDatastoreConfig
+	config.Registrations = &provider
+	config.LaunchData = &launch
+	if original, ok := config.AccessTokens.(*datastore.LTIAccessTokenQueries); ok {
+		tokens := *original
+		tokens.DB = db
+		config.AccessTokens = &tokens
+	}
+	copy.AuthProviderQueries = &provider
+	copy.LTILaunchDataQueries = &launch
+	copy.LTIProtocolDatastoreConfig = &config
+	return &copy
 }

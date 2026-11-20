@@ -1,7 +1,13 @@
 package tasks
 
 import (
+	"errors"
+	"fmt"
 	"time"
+
+	"github.com/cms-lab-core/cms-labs-api/backend/app/models"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 
 	"github.com/cms-lab-core/cms-labs-api/backend/app/queries"
 	"github.com/cms-lab-core/cms-labs-api/backend/app/usecases/lti_connector"
@@ -37,52 +43,41 @@ func (u *LTISyncResultUC) Execute() error {
 	return nil
 }
 
-func (u *LTISyncResultUC) SyncGradeToLTI(attemptId string) error {
-	attempt, err := u.LTIAttemptQueries.GetByAttemptID(attemptId)
-	if err != nil {
-		return err
-	}
-	if attempt.Result == nil {
-		u.Logger.Info().Msgf("LTISyncResultUC: syncing grade for attempt_id=%s is empty", attempt.AttemptID)
-		return nil
-	}
-	result := attempt.Result.Data()
-	// A zero score is still a valid grade and must be delivered to the LMS.
-	if !(result.CurrentScore >= 0 && result.CurrentScore <= result.MaxScore && result.MaxScore > 0 && result.ResultDisplay != "") {
-		u.Logger.Info().Msgf("LTISyncResultUC: syncing grade for attempt_id=%s is empty model", attempt.AttemptID)
-		return nil
-	}
-	u.Logger.Info().Msgf("LTISyncResultUC: syncing grade for attempt_id=%s, maxScore=%f, currentScore=%f, comment=%s",
-		attempt.AttemptID, result.MaxScore, result.CurrentScore, result.ResultDisplay)
-	conn, err := u.LTIConnectorAPI.ConnectorByAttemptID(attempt.AttemptID)
-	if err != nil {
-		return err
-	}
-	ags, err := conn.UpgradeAGS()
-	if err != nil {
-		return err
-	}
-	now := time.Now().UTC()
-	err = ags.PutScore(
-		connector.Score{
-			Timestamp:        now.Format(time.RFC3339),
-			ScoreGiven:       result.CurrentScore,
-			ScoreMaximum:     result.MaxScore,
-			Comment:          result.ResultDisplay,
-			ActivityProgress: ags.CastStatusToActivity(attempt.Status),
-			GradingProgress:  ags.CastStatusToGrade(attempt.Status),
-		},
-		true,
-	)
-	if err != nil {
-		return err
-	}
-	attempt.SynchronizedAt = &now
-	err = u.LTIAttemptQueries.Upsert(&attempt)
-	if err != nil {
-		u.Logger.Error().Err(err).Str("attempt_id", attempt.AttemptID).Msg("LTISyncResultUC: failed to update synchronized_at")
-		return err
-	}
-	u.Logger.Info().Msgf("LTISyncResultUC: successfully synced grade for attempt_id=%s", attempt.AttemptID)
-	return nil
+func (u *LTISyncResultUC) SyncGradeToLTI(attemptID string) error {
+	return u.syncGrade(attemptID, func(tx *gorm.DB, attempt models.LTIAttempt) error {
+		conn, err := u.LTIConnectorAPI.WithDB(tx).ConnectorByAttemptID(attempt.AttemptID)
+		if err != nil {
+			return err
+		}
+		ags, err := conn.UpgradeAGS()
+		if err != nil {
+			return err
+		}
+		result := attempt.Result.Data()
+		return ags.PutScore(connector.Score{
+			Timestamp:  attempt.UpdatedAt.UTC().Format(time.RFC3339Nano),
+			ScoreGiven: result.CurrentScore, ScoreMaximum: result.MaxScore, Comment: result.ResultDisplay,
+			ActivityProgress: ags.CastStatusToActivity(attempt.Status), GradingProgress: connector.GradingFullyGraded,
+		}, true)
+	})
+}
+
+func (u *LTISyncResultUC) syncGrade(attemptID string, send func(*gorm.DB, models.LTIAttempt) error) error {
+	return u.LTIAttemptQueries.DB.Transaction(func(tx *gorm.DB) error {
+		var attempt models.LTIAttempt
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE", Options: "NOWAIT"}).Where("attempt_id = ?", attemptID).First(&attempt).Error; err != nil {
+			return err
+		}
+		if attempt.Result == nil || attempt.SynchronizedAt != nil {
+			return nil
+		}
+		result := attempt.Result.Data()
+		if !(result.CurrentScore >= 0 && result.CurrentScore <= result.MaxScore && result.MaxScore > 0 && result.ResultDisplay != "") {
+			return errors.New("invalid grade remains pending")
+		}
+		if err := send(tx, attempt); err != nil {
+			return fmt.Errorf("deliver grade %s: %w", attemptID, err)
+		}
+		return tx.Model(&models.LTIAttempt{}).Where("id = ?", attempt.ID).UpdateColumn("synchronized_at", time.Now().UTC()).Error
+	})
 }

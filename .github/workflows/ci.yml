@@ -89,6 +89,7 @@ jobs:
       DB_USER: root
       DB_PASSWORD: pnetlab
       DB_NAME: db
+      CMS_GRADE_TEST_MYSQL: "1"
     steps:
       - uses: actions/checkout@v7.0.1
       - uses: actions/setup-go@v7.0.0

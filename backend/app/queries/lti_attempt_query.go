@@ -65,7 +65,7 @@ func (q *LTIAttemptQueries) ListPendingSync() ([]models.LTIAttempt, error) {
 	result := q.DB.Where(
 		"synchronized_at IS NULL AND result IS NOT NULL",
 	)
-	result.Limit(MaxLimitCount).Offset(0).Order("updated_at desc").Find(&entities)
+	result = result.Limit(MaxLimitCount).Offset(0).Order("updated_at asc").Order("id asc").Find(&entities)
 	return entities, result.Error
 }
 

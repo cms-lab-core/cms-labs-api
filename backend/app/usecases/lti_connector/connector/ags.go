@@ -168,7 +168,7 @@ func (a *AGS) PutScore(s Score, useLaunchUserID bool) error {
 		return fmt.Errorf("could not encode body of score publish request: %w", err)
 	}
 
-	_, _, err = a.Target.makeServiceRequest(ServiceRequest{
+	_, responseBody, err := a.Target.makeServiceRequest(ServiceRequest{
 		Scopes:      scopes,
 		Method:      http.MethodPost,
 		URI:         scoreURI,
@@ -178,8 +178,7 @@ func (a *AGS) PutScore(s Score, useLaunchUserID bool) error {
 	if err != nil {
 		return fmt.Errorf("put score make service request error: %w", err)
 	}
-
-	return nil
+	return responseBody.Close()
 }
 
 // GetResults gets the launched limeitem's Results for all user enrolled in that lineitem's context (i.e. course).

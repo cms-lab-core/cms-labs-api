@@ -121,6 +121,8 @@ func runSessionReconciler(ctx context.Context, loggerConf *logs.ZeroLoggerConf) 
 		return
 	}
 
+	wake := make(chan struct{}, 1)
+	go uc.KubernetesAdminQuery.WatchCheckerResults(ctx, wake)
 	reconcile := func() bool {
 		changes, reconcileErr := uc.Reconcile(ctx)
 		if reconcileErr != nil {
@@ -143,6 +145,10 @@ func runSessionReconciler(ctx context.Context, loggerConf *logs.ZeroLoggerConf) 
 		select {
 		case <-ctx.Done():
 			return
+		case <-wake:
+			reconcile()
+			interval = minInterval
+			timer.Reset(interval)
 		case <-timer.C:
 			interval = nextReconcileInterval(interval, minInterval, maxInterval, reconcile())
 			timer.Reset(interval)

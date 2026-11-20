@@ -19,7 +19,6 @@ func (di *DIContainer) LTIAttemptCreateUC() *usecases.LTIAttemptCreateUC {
 func (di *DIContainer) LTIAttemptEditUC() *usecases.LTIAttemptEditUC {
 	return &usecases.LTIAttemptEditUC{
 		LTIAttemptQueries: di.Queries.LTIAttemptQueries,
-		LTISyncResultUC:   di.TaskLTISyncResultUC(),
 	}
 }
 
@@ -27,7 +26,6 @@ func (di *DIContainer) LTIAttemptEditBulkUC() *usecases.LTIAttemptEditBulkUC {
 	return &usecases.LTIAttemptEditBulkUC{
 		LTIAttemptQueries: di.Queries.LTIAttemptQueries,
 		ServerQueries:     di.Queries.ServerQueries,
-		LTISyncResultUC:   di.TaskLTISyncResultUC(),
 	}
 }
 
